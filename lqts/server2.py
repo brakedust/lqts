@@ -1,10 +1,12 @@
 import os
 import logging
+from functools import partial
 
 from fastapi import FastAPI
 
 from .work_queue import Configuration, Job, JobQueue, JobSpec, JobStatus, JobID
-from .mp_pool import DynamicProcessPool, Event
+from .mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
+from .job_runner import run_command
 
 class Application(FastAPI):
 
@@ -13,14 +15,15 @@ class Application(FastAPI):
 
         self.config = Configuration()
         self.queue = JobQueue()
-        
+
         self.config.log_file = None
 
         self._setup_logging(self.config.log_file)
 
         self.pool = None
+        self.__start_workers()
 
-    def __start_workers(self, nworkers: int = None):
+    def __start_workers(self, nworkers: int=DEFAULT_WORKERS):
         """Starts the worker pool
 
         Parameters
@@ -28,13 +31,13 @@ class Application(FastAPI):
         nworkers: int
             number of workers
         """
-        if nworkers is None:
-            nworkers = self.config.nworkers
+        # if nworkers is None:
+        #     nworkers = self.config.nworkers
 
         # self.pool = cf.ProcessPoolExecutor(max_workers=nworkers)
         self.pool = DynamicProcessPool(max_workers=nworkers, feed_delay=0)
         self.pool.add_event_callback(self.receive_pool_events)
-        self.log.info("Worker pool started with {} workers".format(nworkers))    
+        self.log.info("Worker pool started with {} workers".format(nworkers))
 
     def _setup_logging(self, log_file: str):
         """
@@ -45,7 +48,7 @@ class Application(FastAPI):
         ----------
         log_file: str
         """
-        self.log = logging.getLogger("SQS")
+        self.log = logging.getLogger("LQTS")
         formatter = logging.Formatter(
             "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
         )
@@ -61,7 +64,7 @@ class Application(FastAPI):
         console_handler.setFormatter(formatter)
 
         self.log.addHandler(console_handler)
-        
+
         if log_file:
             file_handler = logging.handlers.RotatingFileHandler(
                 log_file, backupCount=2, maxBytes=5 * 1024 * 1024
@@ -73,7 +76,7 @@ class Application(FastAPI):
             file_handler.setFormatter(formatter)
             self.log.addHandler(file_handler)
 
-    def get_job_by_id(self, job_id: JobID) -> dict:
+    def get_job_by_id(self, job_id: JobID) -> Job:
         """
         Looks for a job in the queue with the given job id
 
@@ -103,25 +106,19 @@ class Application(FastAPI):
         event: dict
             dict containing the data from the event
         """
+        job = event.job
 
-        if event.event_type == "started" and len(self.jobs) > 0:
-            job = self.get_job_by_id(event.job_id)
-            if job:
-                job.status = JobStatus.Running
-                job.started = event.data
-                self.log.info(
-                    "+Started job {} at {}".format(job["job_id"], job["started"])
-                )
+        if event.event_type == "started" and len(self.queue.jobs) > 0:
+            self.log.info(
+                "+Started job {} at {}".format(job.job_id, job.started)
+            )
 
-        elif event["event_type"] == "completed" and len(self.jobs) > 0:
-            job = self.get_job_by_id(event["job_id"])
-            if job:
-                job["status"] = "C"
-                if not job["completed"]:
-                    job["completed"] = event["data"]
-                self.log.info(
-                    "-Finished job {} at {}".format(job["job_id"], job["completed"])
-                )
+        elif event.event_type == "completed" and len(self.queue.jobs) > 0:
+            self.log.info(
+                "-Finished job {} at {}".format(job.job_id, job.completed)
+            )
+
+        self.queue.prune()
 
 app = Application()
 app.debug = True
@@ -148,6 +145,7 @@ def get_queue():
 
 @app.put("/qsub")
 def qsub(job_spec:JobSpec):
-    
-    job_id = app.queue.submit(job_spec)
-    return str(job_id)
+
+    job = app.queue.submit(job_spec)
+    app.pool.submit(partial(run_command, job), job)
+    return str(job.job_id)

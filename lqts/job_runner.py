@@ -29,7 +29,7 @@ def run_command(job: Job):
 
     job.status = JobStatus.Running
     job.started = start
-    command = job.command
+    command = job.spec.command
 
     #    log.info('+Started: job {} completed at {}'.format(
     #            job['jobid'], job['started']))
@@ -47,15 +47,15 @@ Started: {}
 """.format(
         "LQTS VERSION",
         job.job_id,
-        job.working_dir,
+        job.spec.working_dir,
         command,
         start.isoformat(),
         # end.isoformat(),
         # (end - start),
     )
 
-    if job.log_file:
-        fid = open(job.log_file, "w")
+    if job.spec.log_file:
+        fid = open(job.spec.log_file, "w")
         fid.write(header)
     else:
         import io
@@ -104,7 +104,7 @@ Started: {}
     )
     fid.write(serr)
 
-    end = datetime.datetime.now()
+    end = datetime.now()
     time.sleep(0.025)
     job.status = JobStatus.Completed
     job.completed = end

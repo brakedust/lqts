@@ -19,12 +19,12 @@ import queue
 import threading
 import time
 from collections import deque
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PyObject, validator
 import psutil
 
-from .work_queue import JobID
+from .work_queue import JobID, Job, JobStatus
 
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
@@ -32,50 +32,39 @@ DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
 
 class _WorkItem(BaseModel):
 
-    job_id: JobID
-    future: cf.Future
-    fn: Callable
-    args: List[str] = []
-    kwargs: Dict = {}
+    job: Job
+    future: Any
+    fn: Any
+    # args: List[str] = []
+    # kwargs: Dict = {}
     start_time: datetime = None
     stop_time: datetime = None
 
+    # @validator("future")
+    # def allow_anything(cls, v):
+    #     return v
+
+    # @validator("fn")
+    # def allow_anything2(cls, v):
+    #     return v
 
 class Event(BaseModel):
 
-    job_id: JobID
+    job: Job
     event_type: str
     when: datetime
 
 
 def mp_worker_func(q_in: mp.Queue, q_out: mp.Queue):
 
-    job_id, func, args, kwargs = q_in.get()
-    # future._state = cf._base.RUNNING
-    # func = future.func
-    # args = future.args
+    # job, func, args, kwargs = q_in.get()
+    job, func = q_in.get()
 
-    result = func(*args, **kwargs)
+    result = func()
     # future.set_result(result)
-    stop_time = datetime.datetime.now().isoformat()
+    stop_time = datetime.now().isoformat()
     # future._state = cf._base.FINISHED
-    q_out.put((job_id, result, stop_time))
-
-
-# def mp_worker_func2(q_in: mp.Queue, q_out: mp.Queue):
-#
-#     while True:
-#         future = q_in.get()
-#         future._state = cf._base.RUNNING
-#         func = future.func
-#         args = future.args
-#
-#         result = func(*args)
-#         future.set_result(result)
-#
-#         future._state = cf._base.FINISHED
-#         q_out.put(future)
-
+    q_out.put((job, result, stop_time))
 
 class DummyLogger:
     def debug(self, *args):
@@ -150,32 +139,32 @@ class DynamicProcessPool(cf.Executor):
 
             self.feed_queue()
 
-    def submit(self, func, args=None, kwargs=None, job_id=None):
+    def submit(self, func: Callable, job:Job):
 
         self.q_count += 1
         # f = MyFuture(func, args, job_id, call_back=call_back)
         future = cf.Future()
-        if job_id is None:
-            job_id = self.q_count
+        # if job_id is None:
+        #     job_id = self.q_count
 
-        if args is None:
-            args = tuple()
+        # if args is None:
+        #     args = tuple()
 
-        if kwargs is None:
-            kwargs = {}
+        # if kwargs is None:
+        #     kwargs = {}
 
         work_item = _WorkItem(
-            job_id=job_id, 
-            future=future, 
-            fn=func, 
-            args=args, 
-            kwargs=kwargs
+            job=job,
+            future=future,
+            fn=func,
+            # args=args,
+            # kwargs=kwargs
         )
 
         with self.q_lock:
-            self.log.debug("Submitting {}".format(job_id))
+            self.log.debug("Submitting {}".format(job.job_id))
             self._queue.append(work_item)
-            self._results[job_id] = work_item
+            self._results[job.job_id] = work_item
         # self.feed_queue()
 
         return future
@@ -196,15 +185,16 @@ class DynamicProcessPool(cf.Executor):
         """
         try:
             # see if any results are available
-            job_id, result, stop_time = self.q_output.get(timeout=timeout)
-            self.log.debug("Got result {} = {}".format(job_id, result))
+            job, result, stop_time = self.q_output.get(timeout=timeout)
+            self.log.debug("Got result {} = {}".format(job.job_id, result))
 
-            work_item = self._results.pop(job_id)
-
+            work_item = self._results.pop(job.job_id)
+            job.completed = stop_time
+            job.status = JobStatus.Completed
             # call backs to notify external things that we are done.
             for callback in self._event_callbacks:
                 event = Event(
-                    job_id=work_item.job_id,
+                    job=work_item.job,
                     event_type="completed",
                     when=stop_time,
                 )
@@ -240,7 +230,7 @@ class DynamicProcessPool(cf.Executor):
 
             # while there is work to do and workers available, start up new jobs
             work_item = self._queue.popleft()
-
+            job = work_item.job
             future = work_item.future
 
             if not future._state == cf._base.PENDING:
@@ -249,7 +239,7 @@ class DynamicProcessPool(cf.Executor):
             future._state = cf._base.RUNNING
             self.log.debug("Spawning {}".format(future))
             self.q_input.put(
-                (work_item.job_id, work_item.fn, work_item.args, work_item.kwargs)
+                (job, work_item.fn)
             )
             # self._result_queue[job_id] = future
 
@@ -258,14 +248,16 @@ class DynamicProcessPool(cf.Executor):
 
             with self.w_lock:
                 # self.active_jobs[job_id] = p.pid()
-                self._workers[work_item] = p
+                self._workers[work_item.job.job_id] = p
                 # time.sleep(0.2)
+            job.status = JobStatus.Running
+            job.started = datetime.now()
 
             for callback in self._event_callbacks:
                 event = Event(
-                    job_id= work_item.job_id,
-                    event_type= "started",
-                    when= datetime.now(),
+                    job=work_item.job,
+                    event_type="started",
+                    when=job.started,
                 )
                 callback(event)
 
@@ -298,8 +290,8 @@ class DynamicProcessPool(cf.Executor):
                     p.terminate()
 
                     work_item.future._state = cf._base.CANCELLED
-                    self._workers.pop(work_item)
-                    self._results.pop(work_item.job_id)
+                    self._workers.pop(work_item.job.job_id)
+                    self._results.pop(work_item.job.job_id)
                     return True
 
         for work_item in self._queue:
@@ -307,7 +299,7 @@ class DynamicProcessPool(cf.Executor):
                 print(f"killing queued job {job_id_to_kill}")
                 work_item.future._state = cf._base.CANCELLED
                 self._queue.remove(work_item)
-                self._results.pop(work_item.job_id)
+                self._results.pop(work_item.job.job_id)
                 return True
 
         # print(f'job not found {job_id_to_kill}')

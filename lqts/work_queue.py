@@ -5,12 +5,15 @@ from os.path import join, expanduser
 from multiprocessing import cpu_count
 from pydantic import BaseModel
 from typing import List, Deque
- 
+
 
 class JobID(BaseModel):
 
     group: int = 1
     index: int = 0
+
+    def __hash__(self):
+        return hash(str(self))
 
     def __str__(self):
         return f"{self.group}.{self.index}"
@@ -43,9 +46,10 @@ class JobStatus(enum.Enum):
 
 class JobSpec(BaseModel):
 
-    command: str 
+    command: str
     working_dir: str
     log_file: str = None
+    priority: int = 10
 
 
 class Job(BaseModel):
@@ -66,7 +70,7 @@ class Job(BaseModel):
 
     def _should_prune(self):
         now = datetime.now()
-        if JobStatus.Completed and now - self.completed > timedelta(seconds=4*3600):
+        if JobStatus.Completed and now - self.completed > timedelta(seconds=2*3600):
             return True
         elif self.status == JobStatus.Deleted:
             return True
@@ -76,28 +80,30 @@ class Job(BaseModel):
 class JobQueue(BaseModel):
 
     jobs: List[Job] = []
+    pruned_jobs: List[Job] = []
 
     current_index: int = 1
 
     def prune(self):
-
-        self.pruned_jobs = [job for job in self.jobs if job._should_prune()]
+        self.pruned_jobs = [job for job in self.pruned_jobs
+                            if (datetime.now()- job.completed) < timedelta(seconds=4*3600)]
+        self.pruned_jobs += [job for job in self.jobs if job._should_prune()]
         self.jobs = [job for job in self.jobs if not job._should_prune()]
 
     def submit(self, job_spec: JobSpec):
-        
+
         job = Job(job_id=JobID(group=self.current_index), spec = job_spec)
         job.status = JobStatus.Queued
         job.submitted = datetime.now()
         self.jobs.append(job)
         self.current_index += 1
-        return job.job_id
+        return job
 
 class Configuration(BaseModel):
 
     ip_address: str = "127.0.0.1"
     port: int = 9126
-    last_job_id: JobID = JobID(group=0, index=0)
+    last_job_id: JobID = JobID(group=0, index=1)
     log_file: str = join(expanduser("~"), "lqts.log")
     config_file: str = join(expanduser("~"), "lqts.config")
     nworkers:int  = max(cpu_count() - 2, 1)
