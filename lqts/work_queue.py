@@ -70,8 +70,11 @@ class Job(BaseModel):
 
     def _should_prune(self):
         now = datetime.now()
-        if JobStatus.Completed and now - self.completed > timedelta(seconds=2*3600):
-            return True
+        if JobStatus.Completed :
+            if now - self.completed > timedelta(seconds=2*3600):
+                return True
+            else:
+                return False    
         elif self.status == JobStatus.Deleted:
             return True
         else:

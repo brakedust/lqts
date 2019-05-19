@@ -81,7 +81,7 @@ Started: {}
     if sys.platform == "linux":
         import shlex
         eol = "\n"
-        command = shlex.split(job["command"].strip())
+        command = shlex.split(job.spec.command.strip())
 
     else:
         eol = "\r\n"

@@ -62,7 +62,10 @@ def mp_worker_func(q_in: mp.Queue, q_out: mp.Queue):
 
     result = func()
     # future.set_result(result)
-    stop_time = datetime.now().isoformat()
+    stop_time = datetime.now()
+    job.completed = stop_time
+    job.walltime = job.completed - job.started
+    # print(job)
     # future._state = cf._base.FINISHED
     q_out.put((job, result, stop_time))
 
@@ -189,15 +192,17 @@ class DynamicProcessPool(cf.Executor):
             self.log.debug("Got result {} = {}".format(job.job_id, result))
 
             work_item = self._results.pop(job.job_id)
-            job.completed = stop_time
+            # job.completed = stop_time
             job.status = JobStatus.Completed
+            # job.walltime = stop_time - job.started
             # call backs to notify external things that we are done.
             for callback in self._event_callbacks:
                 event = Event(
-                    job=work_item.job,
+                    job=job,
                     event_type="completed",
                     when=stop_time,
                 )
+                # print(event)
                 callback(event)
 
             future = work_item.future

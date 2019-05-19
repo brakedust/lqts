@@ -106,8 +106,16 @@ class Application(FastAPI):
         event: dict
             dict containing the data from the event
         """
-        job = event.job
+        # job = event.job
+        job = self.get_job_by_id(event.job.job_id)
+        job.completed = event.job.completed
+        # print(job.completed)
+        job.walltime = event.job.walltime
+        job.status = event.job.status
 
+
+
+        # print("job is job2 = ", job is job2)
         if event.event_type == "started" and len(self.queue.jobs) > 0:
             self.log.info(
                 "+Started job {} at {}".format(job.job_id, job.started)
@@ -118,20 +126,20 @@ class Application(FastAPI):
                 "-Finished job {} at {}".format(job.job_id, job.completed)
             )
 
-        self.queue.prune()
+            # self.queue.prune()
 
 app = Application()
 app.debug = True
 # app.mount('/static', StaticFiles(directory="static"))
 
 
-def fake_job():
-    j = JobSpec(command="echo hello", working_dir=os.getcwd())
-    return j
+# def fake_job():
+#     j = JobSpec(command="echo hello", working_dir=os.getcwd())
+#     return j
 
-app.queue.submit(fake_job())
-app.queue.submit(fake_job())
-app.queue.submit(fake_job())
+# app.queue.submit(fake_job())
+# app.queue.submit(fake_job())
+# app.queue.submit(fake_job())
 
 
 @app.get('/')
@@ -139,11 +147,11 @@ def root():
     return 'Hello, world!'
 
 
-@app.get("/q")
+@app.get("/qstat")
 def get_queue():
     return [j.json() for j in app.queue.jobs]
 
-@app.put("/qsub")
+@app.post("/qsub")
 def qsub(job_spec:JobSpec):
 
     job = app.queue.submit(job_spec)
