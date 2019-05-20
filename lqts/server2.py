@@ -54,7 +54,7 @@ class Application(FastAPI):
         logging.basicConfig(format="%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s")
         self.log = logging.getLogger("uvicorn")
         self.log.setLevel(logging.DEBUG)
-        
+
         formatter = logging.Formatter(
             "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
         )    
@@ -175,10 +175,14 @@ def qsub(job_spec: JobSpec):
 def on_shutdown():
     app.pool.shutdown(wait=False)
 
-@app.post('/shutdown')
-def shutdown():
-    app.pool.shutdown(wait=False)
-    raise KeyboardInterrupt()
+# @app.post('/shutdown')
+# def shutdown():
+#     app.pool.shutdown(wait=False)
+#     import time
+#     time.sleep(2)
+#     import sys
+#     sys.exit()
+    # raise KeyboardInterrupt()
 
 @app.get('/qsummary')
 def get_summary():
