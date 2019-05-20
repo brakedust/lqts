@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from .schema import Job, JobID, JobStatus
 
+
 def run_command(job: Job):
     """
     Runs an instance of aegir for the given filename
@@ -23,20 +24,20 @@ def run_command(job: Job):
         return
 
     time.sleep(0.025)
-    os.chdir(job.spec.working_dir)
+    os.chdir(job.job_spec.working_dir)
     start = datetime.now()
     #        log.info(f'+Starting: {command} at {start.isoformat()}')
 
     job.status = JobStatus.Running
     job.started = start
-    command = job.spec.command
+    command = job.job_spec.command
 
     #    log.info('+Started: job {} completed at {}'.format(
     #            job['jobid'], job['started']))
 
     header = """
-Executed with SQS (the Simple Queueing System)
-SQS Version {}
+Executed with LQTS (the Lightweight Queueing[T] System)
+LQTS Version {}
 -----------------------------------------------
 Job ID:  {}
 WorkDir: {}
@@ -45,17 +46,17 @@ Started: {}
 -----------------------------------------------
 
 """.format(
-        "LQTS VERSION",
+        "0.1.0",
         job.job_id,
-        job.spec.working_dir,
+        job.job_spec.working_dir,
         command,
         start.isoformat(),
         # end.isoformat(),
         # (end - start),
     )
 
-    if job.spec.log_file:
-        fid = open(job.spec.log_file, "w")
+    if job.job_spec.log_file:
+        fid = open(job.job_spec.log_file, "w")
         fid.write(header)
     else:
         import io
@@ -76,12 +77,13 @@ Started: {}
         else:
             line = p.stderr.read()
 
-        return line.decode().replace('\r', '').replace('\n\n', '\n')
+        return line.decode().replace("\r", "").replace("\n\n", "\n")
 
     if sys.platform == "linux":
         import shlex
+
         eol = "\n"
-        command = shlex.split(job.spec.command.strip())
+        command = shlex.split(job.job_spec.command.strip())
 
     else:
         eol = "\r\n"
@@ -108,7 +110,7 @@ Started: {}
     time.sleep(0.025)
     job.status = JobStatus.Completed
     job.completed = end
-    job.walltime = str(end - start)
+    # job.walltime = str(end - start)
 
     footer = """
 -----------------------------------------------

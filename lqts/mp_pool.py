@@ -64,7 +64,7 @@ def mp_worker_func(q_in: mp.Queue, q_out: mp.Queue):
     # future.set_result(result)
     stop_time = datetime.now()
     job.completed = stop_time
-    job.walltime = job.completed - job.started
+    # job.walltime = job.completed - job.started
     # print(job)
     # future._state = cf._base.FINISHED
     q_out.put((job, result, stop_time))
@@ -216,10 +216,10 @@ class DynamicProcessPool(cf.Executor):
             pass
 
         # Remove any processes that are complete
-        for work_item, w in tuple(self._workers.items()):
-            if not w.is_alive():
+        for job_id, (work_item, p) in tuple(self._workers.items()):
+            if not p.is_alive():
                 with self.w_lock:
-                    self._workers.pop(work_item)
+                    self._workers.pop(job_id)
 
         # make sure to feed the queue to keep work going
         self.feed_queue()
@@ -234,10 +234,10 @@ class DynamicProcessPool(cf.Executor):
         while (len(self._workers) < self._max_workers) and (len(self._queue) > 0):
 
             # while there is work to do and workers available, start up new jobs
-            
+
             i = 0
             while i < len(self._queue):
-                if self._queue[i].job.can_run:                        
+                if self._queue[i].job.can_run:
                     work_item = self._queue.popleft()
                     job = work_item.job
                     future = work_item.future
@@ -260,7 +260,7 @@ class DynamicProcessPool(cf.Executor):
 
             with self.w_lock:
                 # self.active_jobs[job_id] = p.pid()
-                self._workers[work_item.job.job_id] = p
+                self._workers[work_item.job.job_id] = (work_item, p)
                 # time.sleep(0.2)
             job.status = JobStatus.Running
             job.started = datetime.now()
@@ -277,7 +277,7 @@ class DynamicProcessPool(cf.Executor):
             # time.sleep(this_delay)
             i += 1
 
-    def kill_job(self, job_id_to_kill):
+    def kill_job(self, job_id_to_kill, kill_all=False):
         """
         Kills the job with ID *job_id_to_kill*
 
@@ -291,9 +291,9 @@ class DynamicProcessPool(cf.Executor):
             True if the job was found and killed, False is the job was not found.
         """
         with self.w_lock:
-            for work_item, p in self._workers.items():
-                if job_id_to_kill == work_item.job_id:
-                    print(f"killing running job {job_id_to_kill}")
+            for job_id, (work_item, p) in self._workers.items():
+                if (job_id_to_kill == job_id) or kill_all:
+                    print(f"killing running job {job_id}")
 
                     # first kill the child processes
                     for child_proc in psutil.Process(p.pid).children(recursive=True):
@@ -302,13 +302,13 @@ class DynamicProcessPool(cf.Executor):
                     p.terminate()
 
                     work_item.future._state = cf._base.CANCELLED
-                    self._workers.pop(work_item.job.job_id)
-                    self._results.pop(work_item.job.job_id)
+                    self._workers.pop(job_id)
+                    self._results.pop(job_id)
                     return True
 
         for work_item in self._queue:
-            if job_id_to_kill == work_item.job_id:
-                print(f"killing queued job {job_id_to_kill}")
+            if job_id_to_kill == work_item.job_id or kill_all:
+                print(f"killing queued job {work_item.job_id}")
                 work_item.future._state = cf._base.CANCELLED
                 self._queue.remove(work_item)
                 self._results.pop(work_item.job.job_id)
@@ -358,7 +358,7 @@ class DynamicProcessPool(cf.Executor):
             self.__abort = True
         else:
             self.__abort = True
-            for future, p in self._workers.items():
+            for job_id, (work_item, p) in self._workers.items():
                 p.terminate()
 
     def _start_manager_thread(self):

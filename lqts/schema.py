@@ -32,17 +32,19 @@ class JobID(BaseModel):
             job_id.group = value
             job_id.index = 0
         else:
-            raise ValueError(f"JobID.parse excepts types int, JobID, or str. You provided {value} of type {type(value)}.")
+            raise ValueError(
+                f"JobID.parse excepts types int, JobID, or str. You provided {value} of type {type(value)}."
+            )
         return job_id
 
 
 class JobStatus(enum.Enum):
 
-    Initialized = 'I'
-    Queued = 'Q'
-    Running = 'R'
-    Completed = 'C'
-    Deleted = 'D'
+    Initialized = "I"
+    Queued = "Q"
+    Running = "R"
+    Completed = "C"
+    Deleted = "D"
 
 
 class JobSpec(BaseModel):
@@ -51,7 +53,8 @@ class JobSpec(BaseModel):
     working_dir: str
     log_file: str = None
     priority: int = 10
-    depend_on: JobID = None
+    depends: List[JobID] = []
+
 
 class Job(BaseModel):
 
@@ -62,22 +65,32 @@ class Job(BaseModel):
     started: datetime = None
     completed: datetime = None
 
-    walltime: timedelta = None
-    spec: JobSpec = None
+    # walltime: timedelta = None
+    job_spec: JobSpec = None
 
-    can_run = True
+    completed_depends: List[JobID] = []
 
     @property
-    def elapsed(self):
-        return self.completed - self.started
+    def can_run(self):
+        return len(self.job_spec.depends) == 0
+
+    @property
+    def walltime(self):
+
+        if self.completed is not None:
+            return self.completed - self.started
+        elif self.started is not None:
+            return datetime.now() - self.started
+        else:
+            return timedelta(0)
 
     def _should_prune(self):
         now = datetime.now()
-        if JobStatus.Completed :
-            if now - self.completed > timedelta(seconds=2*3600):
+        if JobStatus.Completed:
+            if now - self.completed > timedelta(seconds=2 * 3600):
                 return True
             else:
-                return False    
+                return False
         elif self.status == JobStatus.Deleted:
             return True
         else:
@@ -86,7 +99,7 @@ class Job(BaseModel):
     def is_done(self):
         return self.status in (JobStatus.Completed, JobStatus.Deleted)
 
-        
+
 class JobQueue(BaseModel):
 
     jobs: List[Job] = []
@@ -95,19 +108,27 @@ class JobQueue(BaseModel):
     current_index: int = 1
 
     def prune(self):
-        self.pruned_jobs = [job for job in self.pruned_jobs
-                            if (datetime.now()- job.completed) < timedelta(seconds=4*3600)]
+        self.pruned_jobs = [
+            job
+            for job in self.pruned_jobs
+            if (datetime.now() - job.completed) < timedelta(seconds=4 * 3600)
+        ]
         self.pruned_jobs += [job for job in self.jobs if job._should_prune()]
         self.jobs = [job for job in self.jobs if not job._should_prune()]
 
-    def submit(self, job_spec: JobSpec) -> Job:
+    def submit(self, job_spec: JobSpec, job_id=None) -> Job:
 
-        job = Job(job_id=JobID(group=self.current_index), spec = job_spec)
+        if job_id is None:
+            job_id = JobID(group=self.current_index)
+            self.current_index += 1
+
+        job = Job(job_id=job_id, job_spec=job_spec)
         job.status = JobStatus.Queued
         job.submitted = datetime.now()
         self.jobs.append(job)
-        self.current_index += 1
+
         return job
+
 
 class Configuration(BaseModel):
 
@@ -116,4 +137,5 @@ class Configuration(BaseModel):
     last_job_id: JobID = JobID(group=0, index=1)
     log_file: str = join(expanduser("~"), "lqts.log")
     config_file: str = join(expanduser("~"), "lqts.config")
-    nworkers:int  = max(cpu_count() - 2, 1)
+    nworkers: int = max(cpu_count() - 2, 1)
+

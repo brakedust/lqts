@@ -5,31 +5,40 @@ import os
 import ujson
 
 from .schema import Job
+import lqts.displaytable as dt
 
 
-@click.command("qsub")
+@click.command("qstat")
 # @click.argument("command", nargs=1)
 # @click.argument("args", nargs=-1)
 # @click.option("--priority", default=10, type=int)
 # @click.option("--logfile", default='', type=str)
-def qstat():
-    
+@click.option("--debug", is_flag=True, default=False)
+def qstat(debug=False):
 
-    # command = command + " " + " ".join(f'"{arg}"' for arg in  args)
-    # print(command)
-    # working_dir = os.getcwd()
+    response = requests.get("http://127.0.0.1:8000/qstat")  # , json=message)
 
-    # message = {
-    #     "command": command,
-    #     "working_dir": working_dir,
-    #     "logfile": logfile,
-    #     "priority": priority
-    # }
-    
-    response = requests.get("http://127.0.0.1:8000/qstat")  #, json=message)
-    print(response.json())
-    jobs = (Job(**ujson.loads(item)) for item in response.json())
+    if debug:
+        print(response.json())
+    else:
+        jobs = (Job(**ujson.loads(item)) for item in response.json())
 
-    for job in jobs:
-        job:Job = job
-        print(job.job_id, job.status, job.spec.command, job.walltime)
+        # td = dt.tablize(
+        #                 data,
+        #                 include=['job_id', 'command', 'status', 'started', 'walltime'])
+        rows = [["ID", "St", "Command", "Walltime", "WorkingDir", "DependsOn"]]
+        for job in jobs:
+            job: Job = job
+            rows.append(
+                [
+                    job.job_id,
+                    job.status.value,
+                    job.job_spec.command,
+                    job.walltime,
+                    job.job_spec.working_dir,
+                    str(job.job_spec.depends),
+                ]
+            )
+
+        t = dt.make_table(rows, colsep="|", use_rowsep=False, maxwidth=80)
+        print(t)

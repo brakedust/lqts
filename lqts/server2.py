@@ -1,6 +1,8 @@
 import os
 import logging
 from functools import partial
+from typing import List
+from collections import defaultdict, Counter
 
 from fastapi import FastAPI
 
@@ -9,18 +11,21 @@ from .mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
 from .job_runner import run_command
 
 class Application(FastAPI):
-
+    """
+    LoQuTuS Job Scheduling Server
+    """
     def __init__(self):
         super().__init__()
 
         self.config = Configuration()
         self.queue = JobQueue()
 
-        self.dependencies = {}
+        self.dependencies = defaultdict(list)
 
         self.config.log_file = None
 
         self._setup_logging(self.config.log_file)
+        self.log.info('Starting up LoQuTuS server.')
 
         self.pool = None
         self.__start_workers()
@@ -50,15 +55,15 @@ class Application(FastAPI):
         ----------
         log_file: str
         """
-        
-        logging.basicConfig(format="%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s")
+        fmt = "%(asctime)s %(levelname)s | %(message)s"
+        logging.basicConfig(format=fmt)
         self.log = logging.getLogger("uvicorn")
         self.log.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter(
             "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
-        )    
-    
+        )
+
         if log_file:
             file_handler = logging.handlers.RotatingFileHandler(
                 log_file, backupCount=2, maxBytes=5 * 1024 * 1024
@@ -100,40 +105,63 @@ class Application(FastAPI):
         event: dict
             dict containing the data from the event
         """
-        # job = event.job
-        job = self.get_job_by_id(event.job.job_id)
-        job.completed = event.job.completed
-        # print(job.completed)
-        job.walltime = event.job.walltime
-        job.status = event.job.status
 
-        
+        job = self.get_job_by_id(event.job.job_id)
+        job.status = event.job.status
 
         # print("job is job2 = ", job is job2)
         if event.event_type == "started" and len(self.queue.jobs) > 0:
+            job.started = event.job.started
             self.log.info(
-                "+Started job {} at {}".format(job.job_id, job.started)
+                "  +Started job {} at {}".format(job.job_id, job.started)
             )
 
         elif event.event_type == "completed" and len(self.queue.jobs) > 0:
+            job.completed = event.job.completed
             self.log.info(
-                "-Finished job {} at {}".format(job.job_id, job.completed)
+                "  -Finished job {} at {}".format(job.job_id, job.completed)
             )
 
             if job.job_id in self.dependencies:
-                waiting_job = self.get_job_by_id(self.dependencies[job.job_id])
-                waiting_job.can_run = True
-                self.dependencies.pop(job.job_id)
-                self.log.info(
-                    ">>> Dependency for job {} now complete".format(waiting_job.job_id) #, job.job_id, job.completed)
-                )
+                for dependent in self.dependencies[job.job_id]:
+                    waiting_job: Job = self.get_job_by_id(dependent)
+                    waiting_job.spec.depends.remove(job.job_id)
+                    if len(waiting_job.spec.depends) == 0:
+                        waiting_job.can_run = True
+                        self.dependencies.pop(job.job_id)
+                        self.log.info(
+                            ">>> Dependencies for job {} now complete".format(waiting_job.job_id) #, job.job_id, job.completed)
+                        )
 
     def queue_empty(self):
 
         return any(not job.is_done() for job in self.queue.jobs)
 
+    async def submit_jobs(self, job_specs: List[JobSpec]):
 
-            # self.queue.prune()
+        job_ids = []
+        group = self.queue.current_index
+        self.queue.current_index += 1
+        for i, job_spec in enumerate(job_specs):
+            job_id = JobID(group=group, index=i)
+            job = self.queue.submit(job_spec, job_id=job_id)
+            if (job_spec.depends):
+
+                for dep in job_spec.depends:
+                    dep_job_id = JobID.parse(dep)
+                    dep_job = self.get_job_by_id(dep_job_id)
+                    if dep_job.status not in (JobStatus.Completed, JobStatus.Deleted):
+                        self.dependencies[dep_job_id].append(job.job_id)
+
+            job_ids.append(str(job.job_id))
+            self.log.info(
+                "+++Assimilated job {} at {} - {}".format(job.job_id, job.submitted, job.job_spec.command)
+            )
+
+            self.pool.submit(partial(run_command, job), job)
+
+        return job_ids
+
 
 app = Application()
 app.debug = True
@@ -160,33 +188,26 @@ def get_queue():
 
 
 @app.post("/qsub")
-def qsub(job_spec: JobSpec):
+async def qsub(job_specs: List[JobSpec]):
 
-    job = app.queue.submit(job_spec)
-    if (job_spec.depend_on):
-        job.can_run = False
-        app.dependencies[JobID.parse(job_spec.depend_on)] = job.job_id
-
-    app.pool.submit(partial(run_command, job), job)
-    return str(job.job_id)
+    return await app.submit_jobs(job_specs)
 
 
 @app.on_event("shutdown")
 def on_shutdown():
     app.pool.shutdown(wait=False)
 
-# @app.post('/shutdown')
-# def shutdown():
-#     app.pool.shutdown(wait=False)
-#     import time
-#     time.sleep(2)
-#     import sys
-#     sys.exit()
-    # raise KeyboardInterrupt()
 
 @app.get('/qsummary')
 def get_summary():
-    from collections import Counter
+    """
+    Gets a summary of what the state of the queue is.
+    * I = Initialized
+    * Q = Queued
+    * R = Running
+    * D = Deleted
+    * C = completed
+    """
     c = Counter([job.status.value for job in app.queue.jobs])
     for letter in 'IRQDC':
         if letter not in c:
@@ -194,16 +215,23 @@ def get_summary():
 
     return c
 
+
 @app.get('/workers')
 def get_workers():
+    """
+    Gets the number of worker processes to execute jobs.
+    """
     app.log.info(
         "Number of workers queried by user. Returned {}".format(app.pool._max_workers)
     )
     return app.pool._max_workers
 
+
 @app.post('/workers')
 def set_workers(count: int):
-    
+    """
+    Sets the number of worker processes to execute jobs.
+    """
     app.log.info(
         "Setting maximum number of workers to {}".format(count)
     )
@@ -211,3 +239,29 @@ def set_workers(count: int):
     return app.pool._max_workers
 
 
+@app.post('/qclear')
+def clear_queue(really: bool):
+    """
+    Kills running jobs and totally erases the queue.
+    """
+    if really:
+        app.pool.kill_job(None, True)
+        app.queue.jobs.clear()
+        return 'Killed running jobs and cleared queue'
+    else:
+        return 'You must specify really=true to actually kill the jobs'
+
+@app.post('/qdel')
+def qdel(job_ids:List[JobID]):
+    """
+    Delete on or more jobs
+    """
+    deleted_jobs = []
+    for jid in job_ids:
+        job_id = JobID.parse(jid)
+        app.pool.kill_job(job_id)
+        job = app.get_job_by_id(job_id)
+        job.status = JobStatus.Deleted
+        deleted_jobs.append(job_id)
+
+    return f"Deleted jobs {ujson.dumps(deleted_jobs)}"
