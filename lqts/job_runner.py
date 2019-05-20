@@ -4,7 +4,7 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 
-from .work_queue import Job, JobID, JobStatus
+from .schema import Job, JobID, JobStatus
 
 def run_command(job: Job):
     """

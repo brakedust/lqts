@@ -25,11 +25,12 @@ class JobID(BaseModel):
             return value
         elif isinstance(value, str):
             if "." not in value:
-                job_id.Group = int(value)
+                job_id.group = int(value)
             else:
-                job_id.Group, job_id.value = map(int, value.split("."))
+                job_id.group, job_id.index = map(int, value.split("."))
         elif isinstance(value, int):
-            job_id.Group = value
+            job_id.group = value
+            job_id.index = 0
         else:
             raise ValueError(f"JobID.parse excepts types int, JobID, or str. You provided {value} of type {type(value)}.")
         return job_id
@@ -50,7 +51,7 @@ class JobSpec(BaseModel):
     working_dir: str
     log_file: str = None
     priority: int = 10
-
+    depend_on: JobID = None
 
 class Job(BaseModel):
 
@@ -63,6 +64,8 @@ class Job(BaseModel):
 
     walltime: timedelta = None
     spec: JobSpec = None
+
+    can_run = True
 
     @property
     def elapsed(self):
@@ -80,6 +83,10 @@ class Job(BaseModel):
         else:
             return False
 
+    def is_done(self):
+        return self.status in (JobStatus.Completed, JobStatus.Deleted)
+
+        
 class JobQueue(BaseModel):
 
     jobs: List[Job] = []
@@ -93,7 +100,7 @@ class JobQueue(BaseModel):
         self.pruned_jobs += [job for job in self.jobs if job._should_prune()]
         self.jobs = [job for job in self.jobs if not job._should_prune()]
 
-    def submit(self, job_spec: JobSpec):
+    def submit(self, job_spec: JobSpec) -> Job:
 
         job = Job(job_id=JobID(group=self.current_index), spec = job_spec)
         job.status = JobStatus.Queued

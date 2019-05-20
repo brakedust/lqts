@@ -4,7 +4,7 @@ import os
 
 import ujson
 
-from .work_queue import Job
+from .schema import Job
 
 
 @click.command("qsub")

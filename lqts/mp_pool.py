@@ -24,7 +24,7 @@ from typing import Callable, List, Dict, Any
 from pydantic import BaseModel, PyObject, validator
 import psutil
 
-from .work_queue import JobID, Job, JobStatus
+from .schema import JobID, Job, JobStatus
 
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
@@ -234,9 +234,16 @@ class DynamicProcessPool(cf.Executor):
         while (len(self._workers) < self._max_workers) and (len(self._queue) > 0):
 
             # while there is work to do and workers available, start up new jobs
-            work_item = self._queue.popleft()
-            job = work_item.job
-            future = work_item.future
+            
+            i = 0
+            while i < len(self._queue):
+                if self._queue[i].job.can_run:                        
+                    work_item = self._queue.popleft()
+                    job = work_item.job
+                    future = work_item.future
+                    break
+            else:
+                return
 
             if not future._state == cf._base.PENDING:
                 continue

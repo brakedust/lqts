@@ -4,7 +4,7 @@ from functools import partial
 
 from fastapi import FastAPI
 
-from .work_queue import Configuration, Job, JobQueue, JobSpec, JobStatus, JobID
+from .schema import Configuration, Job, JobQueue, JobSpec, JobStatus, JobID
 from .mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
 from .job_runner import run_command
 
@@ -15,6 +15,8 @@ class Application(FastAPI):
 
         self.config = Configuration()
         self.queue = JobQueue()
+
+        self.dependencies = {}
 
         self.config.log_file = None
 
@@ -48,23 +50,15 @@ class Application(FastAPI):
         ----------
         log_file: str
         """
-        self.log = logging.getLogger("LQTS")
+        
+        logging.basicConfig(format="%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s")
+        self.log = logging.getLogger("uvicorn")
+        self.log.setLevel(logging.DEBUG)
+        
         formatter = logging.Formatter(
             "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
-        )
-        # setup console logging
-
-        console_handler = logging.StreamHandler()
-        if self._debug:
-            self.log.setLevel(logging.DEBUG)
-            console_handler.setLevel(logging.DEBUG)
-        else:
-            self.log.setLevel(logging.INFO)
-            console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(formatter)
-
-        self.log.addHandler(console_handler)
-
+        )    
+    
         if log_file:
             file_handler = logging.handlers.RotatingFileHandler(
                 log_file, backupCount=2, maxBytes=5 * 1024 * 1024
@@ -113,7 +107,7 @@ class Application(FastAPI):
         job.walltime = event.job.walltime
         job.status = event.job.status
 
-
+        
 
         # print("job is job2 = ", job is job2)
         if event.event_type == "started" and len(self.queue.jobs) > 0:
@@ -125,6 +119,19 @@ class Application(FastAPI):
             self.log.info(
                 "-Finished job {} at {}".format(job.job_id, job.completed)
             )
+
+            if job.job_id in self.dependencies:
+                waiting_job = self.get_job_by_id(self.dependencies[job.job_id])
+                waiting_job.can_run = True
+                self.dependencies.pop(job.job_id)
+                self.log.info(
+                    ">>> Dependency for job {} now complete".format(waiting_job.job_id) #, job.job_id, job.completed)
+                )
+
+    def queue_empty(self):
+
+        return any(not job.is_done() for job in self.queue.jobs)
+
 
             # self.queue.prune()
 
@@ -151,9 +158,52 @@ def root():
 def get_queue():
     return [j.json() for j in app.queue.jobs]
 
+
 @app.post("/qsub")
-def qsub(job_spec:JobSpec):
+def qsub(job_spec: JobSpec):
 
     job = app.queue.submit(job_spec)
+    if (job_spec.depend_on):
+        job.can_run = False
+        app.dependencies[JobID.parse(job_spec.depend_on)] = job.job_id
+
     app.pool.submit(partial(run_command, job), job)
     return str(job.job_id)
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    app.pool.shutdown(wait=False)
+
+@app.post('/shutdown')
+def shutdown():
+    app.pool.shutdown(wait=False)
+    raise KeyboardInterrupt()
+
+@app.get('/qsummary')
+def get_summary():
+    from collections import Counter
+    c = Counter([job.status.value for job in app.queue.jobs])
+    for letter in 'IRQDC':
+        if letter not in c:
+            c[letter] = 0
+
+    return c
+
+@app.get('/workers')
+def get_workers():
+    app.log.info(
+        "Number of workers queried by user. Returned {}".format(app.pool._max_workers)
+    )
+    return app.pool._max_workers
+
+@app.post('/workers')
+def set_workers(count: int):
+    
+    app.log.info(
+        "Setting maximum number of workers to {}".format(count)
+    )
+    app.pool.resize(count)
+    return app.pool._max_workers
+
+
