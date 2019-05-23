@@ -1,0 +1,35 @@
+
+<div class="container">
+    <div class="row">
+    <div class="col-sm">
+    <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10"
+        href="/qstat2?complete=yes" role="button">Include Completed</a>
+    <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstat2?complete=no"
+        role="button">Exclude Completed</a>
+    {# <a type="button" class="btn btn-danger" style="padding:10"
+        href="/qclear?really=yes" role="button">Clear Queue</a> #}
+    </div>
+
+
+    <div class="col-sm">
+
+    <form action="/workers" method="post">
+    <div class="row">
+        {# <div class="col-25"> #}
+            <label class="lead" style="margin-right:5px" for="workercount">Worker Count</label>
+        {# </div> #}
+        {# <div class="col-50"> #}
+            <input type="text" id="workercount" name="count" placeholder="{{ workercount }}"
+            style="width:60px;margin-right:5px">
+        {# </div> #}
+        {# <div class="col-25"> #}
+            <input class="btn btn-danger" type="submit" value="Submit">
+        {# </div> #}
+    </div>
+    </form>
+
+    </div>
+
+
+</div>
+</div>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>LoQuTuS - {{ page_title }} </title>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="120">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/dataTables.bootstrap4.min.js"></script>
+    <style>
+        /* .fakeimg {
+      height: 100px;
+      background: #aaa;
+  } */
+    </style>
+</head>
+
+<body>
+    <div class="container" style="background:steelblue">
+        <h1 style="text-align:center;color: white">LoQuTuS</h1>
+        <h2 style="text-align:center;color: white"> {{ page_title }} </h1>
+    </div>
+
+    {{ navbar }}
+
+    {{ buttonbar }}
+
+    <div class="container">
+    <p class="lead"> {{ summary }} </p>
+    </div>
+
+
+    <div class="container">
+    {{ table }}
+    </div>
+
+</body>
+
+</html>
