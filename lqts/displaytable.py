@@ -447,6 +447,17 @@ def _test():
     for subtable in t_split:
         print(make_table(subtable))
 
+def make_html_table(rows):
+
+    content = ['<table class="table table-sm display">']
+
+    content.append('<thead class="thead-dark" style="text-align: center;">' + "".join(f"<th>{item}</th>" for item in rows[0]) + "</thead>" + "\n" )
+    for row in rows[1:]:
+        content.append('<tr style="text-align: center;">' + "".join(f"<td>{item}</td>" for item in row) + "</tr>" + "\n")
+
+    content.append("</table>")
+
+    return "\n".join(content)
 
 if __name__ == "__main__":
 

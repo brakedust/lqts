@@ -1,78 +1,39 @@
-# -*- coding: utf-8 -*-
-"""
-server Module
-================
-
-Provides the SQServer class.
-"""
-import asyncio
-import json
+import os
 import logging
-import logging.handlers
-from os.path import join, expanduser
-from collections import deque
-from multiprocessing import cpu_count
+from functools import partial
+from typing import List
+from collections import defaultdict, Counter
 
-from .exceptions import SQSShutdownException
-from .messages import MessageDispatcher
-from .version import VERSION
-from .mp_pool import DynamicProcessPool
-from .config import Configuration
+from fastapi import FastAPI
+import ujson
 
-# VERSION = GitVersionInfo.get().setuptools_version
+from .schema import Configuration, Job, JobQueue, JobSpec, JobStatus, JobID
+from .mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
+from .job_runner import run_command
 
 
-class SQServer:
+class Application(FastAPI):
     """
-    Simple Queueing System server class
-
-    This class handles receiving requests from clients and managing the queueing and
-    execution of work.
+    LoQuTuS Job Scheduling Server
     """
 
-    dispatcher = MessageDispatcher()
+    def __init__(self):
+        super().__init__()
 
-    def __init__(
-        self,
-        port: int = 9126,
-        ip_address: str = "127.0.0.1",
-        config_file: str = join(expanduser("~"), "sqs.config"),
-        log_file: str = join(expanduser("~"), "sqs.log"),
-        nworkers: int = cpu_count() - 2,
-        feed_delay=0.0,
-        debug: bool = False,
-    ):
+        self.config = Configuration()
+        self.queue = JobQueue()
 
-        self.config_file = config_file
+        self.dependencies = defaultdict(list)
 
-        self.config = Configuration(
-            ip_address=ip_address,
-            port=port,
-            config_file=config_file,
-            log_file=log_file,
-            nworkers=nworkers,
-        )
+        self.config.log_file = None
 
-        # self.port = port
-        # self.ip_address = ip_address
-        # self.config_file = config_file
-        # self.log_file = log_file
-        # self.nworkers = nworkers
+        self._setup_logging(self.config.log_file)
+        self.log.info("Starting up LoQuTuS server.")
+
         self.pool = None
-        self._shutting_down = False
-        self.jobs = deque()
-        self.job_id = 0
-        self._debug = debug
-        self.feed_delay = feed_delay
-        self.event_loop = None
-        self.__server = None
+        self.__start_workers()
 
-        self.log = None
-        self.setup_logging(self.config.log_file)
-
-        self.log.info("Starting SQS version %s", VERSION)
-
-    def __start_workers(self, nworkers: int = None):
+    def __start_workers(self, nworkers: int = DEFAULT_WORKERS):
         """Starts the worker pool
 
         Parameters
@@ -80,95 +41,44 @@ class SQServer:
         nworkers: int
             number of workers
         """
-        if nworkers is None:
-            nworkers = self.config.nworkers
+        # if nworkers is None:
+        #     nworkers = self.config.nworkers
 
         # self.pool = cf.ProcessPoolExecutor(max_workers=nworkers)
-        self.pool = DynamicProcessPool(max_workers=nworkers, feed_delay=self.feed_delay)
+        self.pool = DynamicProcessPool(max_workers=nworkers, feed_delay=0)
         self.pool.add_event_callback(self.receive_pool_events)
         self.log.info("Worker pool started with {} workers".format(nworkers))
 
-    def run(self):
+    def _setup_logging(self, log_file: str):
         """
-        Starts the worker process pool and the event loop
-        """
-        import ssl
-
-        self.__start_workers()
-
-        # sc = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        # sc.check_hostname = False
-        # sc.load_cert_chain(
-        #     r'A:\data\.cert\shrike-data-public.cert',
-        #     r'A:\data\.cert\shrike-data-private.key'
-        # )
-
-        self.event_loop = asyncio.get_event_loop()
-
-        coro = asyncio.start_server(
-            self.handle_job_submission,
-            self.config.ip_address,
-            self.config.port,
-            loop=self.event_loop,
-        )
-        # self.config.ip_address, self.config.port, loop=self.event_loop, ssl=sc)
-
-        self.__server = self.event_loop.run_until_complete(coro)
-
-        # Serve requests until Ctrl+C is pressed
-        self.log.info("Serving on {}".format(self.__server.sockets[0].getsockname()))
-        try:
-            self.event_loop.run_forever()
-        except (KeyboardInterrupt, SQSShutdownException):
-            self.log.info("Shutting down server")
-        finally:
-            # Close the server
-            self.config.save()
-            self.pool.shutdown(wait=False)
-
-            self.__server.close()
-            # pending = asyncio.Task.all_tasks()
-
-            # Run loop until tasks done:
-            # self.event_loop.run_until_complete(asyncio.gather(*pending))
-            self.event_loop.run_until_complete(self.__server.wait_closed())
-
-            # self.event_loop.run_until_complete(self.handle_job_submission.finish_connections(5))
-        self.event_loop.close()
-        # self.event_loop.run_until_complete(app.cleanup())
-
-    def receive_pool_events(self, event: dict):
-        """
-        The sqs.mp_pool.DynamicProcessPool sends some events when jobs start
-        and stop.  The method is registered as a callback to receive these
-        events.
+        Sets up logging.  A console and file logger are used.  The _DEGBUG flag on
+        the SQServer instance controls the log level
 
         Parameters
         ----------
-        event: dict
-            dict containing the data from the event
+        log_file: str
         """
+        fmt = "%(asctime)s %(levelname)s | %(message)s"
+        logging.basicConfig(format=fmt)
+        self.log = logging.getLogger("uvicorn")
+        self.log.setLevel(logging.DEBUG)
 
-        if event["event_type"] == "started" and len(self.jobs) > 0:
-            job = self.get_job_by_id(event["job_id"])
-            if job:
-                job["status"] = "R"
-                job["started"] = event["data"]
-                self.log.info(
-                    "+Started job {} at {}".format(job["job_id"], job["started"])
-                )
+        formatter = logging.Formatter(
+            "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
+        )
 
-        elif event["event_type"] == "completed" and len(self.jobs) > 0:
-            job = self.get_job_by_id(event["job_id"])
-            if job:
-                job["status"] = "C"
-                if not job["completed"]:
-                    job["completed"] = event["data"]
-                self.log.info(
-                    "-Finished job {} at {}".format(job["job_id"], job["completed"])
-                )
+        if log_file:
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_file, backupCount=2, maxBytes=5 * 1024 * 1024
+            )  # 5 megabytes
+            if self._debug:
+                file_handler.setLevel(logging.DEBUG)
+            else:
+                file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(formatter)
+            self.log.addHandler(file_handler)
 
-    def get_job_by_id(self, job_id: int) -> dict:
+    def get_job_by_id(self, job_id: JobID) -> Job:
         """
         Looks for a job in the queue with the given job id
 
@@ -183,103 +93,196 @@ class SQServer:
             dict containing details about the job
         """
 
-        for job, __ in self.jobs:
-            if job["job_id"] == job_id:
+        for job in self.queue.jobs:
+            if job.job_id == job_id:
                 return job
 
-        # @property
-        # def config(self) -> dict:
+    def receive_pool_events(self, event: Event):
         """
-        Gets the configuration dict for this server instance
-        """
-        # return self.config{
-        #     "job_id": self.job_id,
-        #     "port": self.port,
-        #     "ip_address": self.ip_address}
-
-    def read_config(self):
-        """
-        Reads the sqs configuration file.
-        """
-        self.config = Configuration.load(self.config_file)
-        # if os.path.exists(self.config_file):
-        #     with open(self.config_file) as fid:
-        #         config = json.load(fid)
-        #
-        #     self.log.debug(config)
-        #
-        #     self.job_id = config.get('job_id', self.job_id)
-        #     self.log.info('Initial JobID = {}'.format(self.job_id))
-        #
-        #     self.port = config.get('port', self.port)
-        #     self.ip_address = config.get('ip_address', self.ip_address)
-
-    def write_config(self):
-        """Writes the SQS configuration file"""
-        self.config.last_job_id = self.job_id
-        self.config.save()
-        # with open(self.config_file, 'w') as fid:
-        #     json.dump(self.config, fid)
-
-        self.log.debug("config file written")
-
-    def setup_logging(self, log_file: str):
-        """
-        Sets up logging.  A console and file logger are used.  The _DEGBUG flag on
-        the SQServer instance controls the log level
+        The sqs.mp_pool.DynamicProcessPool sends some events when jobs start
+        and stop.  The method is registered as a callback to receive these
+        events.
 
         Parameters
         ----------
-        log_file: str
-        """
-        self.log = logging.getLogger("SQS")
-        formatter = logging.Formatter(
-            "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
-        )
-        # setup console logging
-
-        console_handler = logging.StreamHandler()
-        if self._debug:
-            self.log.setLevel(logging.DEBUG)
-            console_handler.setLevel(logging.DEBUG)
-        else:
-            self.log.setLevel(logging.INFO)
-            console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(formatter)
-
-        self.log.addHandler(console_handler)
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file, backupCount=2, maxBytes=5 * 1024 * 1024
-        )  # 5 megabytes
-        if self._debug:
-            file_handler.setLevel(logging.DEBUG)
-        else:
-            file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(formatter)
-        self.log.addHandler(file_handler)
-
-    async def handle_job_submission(
-        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ):
-        """
-        Called when the server receives a message from the client.
-
+        event: dict
+            dict containing the data from the event
         """
 
-        # self.log.debug('message received')
-        data = await reader.read()
+        job = self.get_job_by_id(event.job.job_id)
+        job.status = event.job.status
 
-        message = data.decode()
+        # print("job is job2 = ", job is job2)
+        if event.event_type == "started" and len(self.queue.jobs) > 0:
+            job.started = event.job.started
+            self.log.info("  +Started job {} at {}".format(job.job_id, job.started))
 
-        self.log.debug("message received: {}".format(message))
+        elif event.event_type == "completed" and len(self.queue.jobs) > 0:
+            job.completed = event.job.completed
+            self.log.info("  -Finished job {} at {}".format(job.job_id, job.completed))
 
-        addr = writer.get_extra_info("peername")
-        #        print("Received %r from %r" % (message, addr))
+            if job.job_id in self.dependencies:
+                for dependent in self.dependencies[job.job_id]:
+                    waiting_job: Job = self.get_job_by_id(dependent)
+                    waiting_job.job_spec.depends.remove(job.job_id)
+                    waiting_job.completed_depends.append(job.job_id)
+                    if len(waiting_job.job_spec.depends) == 0:
+                        # waiting_job.can_run = True
+                        # print(self.dependencies)
+                        self.log.info(
+                            ">>> Dependencies for job {} now complete".format(
+                                waiting_job.job_id
+                            )  # , job.job_id, job.completed)
+                        )
+                self.dependencies.pop(job.job_id)
 
-        message = json.loads(message)
+    def queue_empty(self):
 
-        message["host"] = addr[0]
+        return any(not job.is_done() for job in self.queue.jobs)
 
-        func = self.dispatcher.get_handler(message)
+    def submit_jobs(self, job_specs: List[JobSpec]):
 
-        await func(self, message, reader, writer)
+        job_ids = []
+        group = self.queue.current_index
+        self.queue.current_index += 1
+        for i, job_spec in enumerate(job_specs):
+            job_id = JobID(group=group, index=i)
+            job = self.queue.submit(job_spec, job_id=job_id)
+            if job_spec.depends:
+
+                for dep in job_spec.depends:
+                    dep_job_id = JobID.parse(dep)
+                    dep_job = self.get_job_by_id(dep_job_id)
+                    if dep_job.status not in (JobStatus.Completed, JobStatus.Deleted):
+                        self.dependencies[dep_job_id].append(job.job_id)
+
+            job_ids.append(str(job.job_id))
+            self.log.info(
+                "+++Assimilated job {} at {} - {}".format(
+                    job.job_id, job.submitted, job.job_spec.command
+                )
+            )
+
+            self.pool.submit(partial(run_command, job), job)
+
+        return job_ids
+
+
+app = Application()
+app.debug = True
+# app.mount('/static', StaticFiles(directory="static"))
+
+
+# def fake_job():
+#     j = JobSpec(command="echo hello", working_dir=os.getcwd())
+#     return j
+
+# app.queue.submit(fake_job())
+# app.queue.submit(fake_job())
+# app.queue.submit(fake_job())
+
+
+@app.get("/")
+def root():
+    return "Hello, world!"
+
+
+@app.get("/qstat")
+def get_queue():
+    return [j.json() for j in app.queue.jobs]
+
+
+@app.post("/qsub")
+def qsub(job_specs: List[JobSpec]):
+
+    return app.submit_jobs(job_specs)
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    app.pool.shutdown(wait=False)
+
+
+@app.get("/qsummary")
+def get_summary():
+    """
+    Gets a summary of what the state of the queue is.
+    * I = Initialized
+    * Q = Queued
+    * R = Running
+    * D = Deleted
+    * C = completed
+    """
+    c = Counter([job.status.value for job in app.queue.jobs])
+    for letter in "IRQDC":
+        if letter not in c:
+            c[letter] = 0
+
+    return c
+
+
+@app.get("/workers")
+def get_workers():
+    """
+    Gets the number of worker processes to execute jobs.
+    """
+    app.log.info(
+        "Number of workers queried by user. Returned {}".format(app.pool._max_workers)
+    )
+    return app.pool._max_workers
+
+
+@app.post("/workers")
+def set_workers(count: int):
+    """
+    Sets the number of worker processes to execute jobs.
+    """
+    app.log.info("Setting maximum number of workers to {}".format(count))
+    app.pool.resize(count)
+    return app.pool._max_workers
+
+
+@app.post("/qclear")
+def clear_queue(really: bool):
+    """
+    Kills running jobs and totally erases the queue.
+    """
+    if really:
+        app.pool.kill_job(None, True)
+        app.queue.jobs.clear()
+        return "Killed running jobs and cleared queue"
+    else:
+        return "You must specify really=true to actually kill the jobs"
+
+
+@app.post("/qdel")
+def qdel(job_ids: List[JobID]):
+    """
+    Delete on or more jobs
+    """
+    for jid in list(job_ids):
+        if jid.index is None:
+            job_ids.remove(jid)
+            job_ids.extend(j.job_id for j in app.queue.get_job_group(jid.group))
+        # else:
+        #     job_ids.append(jid)
+
+    deleted_jobs = []
+    for jid in job_ids:
+        job_id = JobID.parse(jid)
+        app.pool.kill_job(job_id)
+        job = app.get_job_by_id(job_id)
+        job.status = JobStatus.Deleted
+        deleted_jobs.append(job_id)
+
+    dead_jobs = [str(jid) for jid in deleted_jobs]
+    return {"Deleted jobs": dead_jobs}
+
+
+@app.get("/qstat2")
+def qstat_html(complete="no"):
+    from lqts.html.render_qstat import render_qstat_page
+    from starlette.responses import HTMLResponse
+
+    complete = complete == "yes"
+    return HTMLResponse(render_qstat_page(complete))

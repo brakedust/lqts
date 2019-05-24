@@ -19,45 +19,84 @@ header = """<!DOCTYPE html>
 </head>
 <body>
 
-<div class="jumbotron text-center" style="margin-bottom:0">
-  <h1>{title}</h1>
-  <!-- <p>Agenda Status</p> -->
-</div>
-
-# <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
-#   <a class="navbar-brand" href="#">Navbar</a>
-#   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#collapsibleNavbar">
-#     <span class="navbar-toggler-icon"></span>
-#   </button>
-#   <div class="collapse navbar-collapse" id="collapsibleNavbar">
-#     <ul class="navbar-nav">
-#       <li class="nav-item">
-#         <a class="nav-link" href="qstat.html">QSTAT</a>
-#       </li>
-#       <li class="nav-item">
-#         <a class="nav-link" href="agenda_status.html">Agenda Status</a>
-#       </li>
-#       <!-- <li class="nav-item">
-#         <a class="nav-link" href="#">Link</a>
-#       </li> -->
-#     </ul>
-#   </div>
-# </nav>
+<div style="background:steelblue">
+        <h1 style="text-align:center;color: white">LoQuTuS</h1>
+        <h2 style="text-align:center;color: white">QSTAT</h1>
+    </div>
+<!--
+<nav class="navbar navbar-expand-sm bg-dark navbar-dark">
+  <a class="navbar-brand" href="#">Navbar</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#collapsibleNavbar">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse" id="collapsibleNavbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="qstat.html">QSTAT</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="agenda_status.html">Agenda Status</a>
+      </li>
+      <!-- <li class="nav-item">
+        <a class="nav-link" href="#">Link</a>
+      </li> -->
+    </ul>
+  </div>
+</nav>
+-->
 """
+
+
+def qstat_coloring_script():
+    return """<script>
+        var i;
+        var row;
+        var t = document.getElementsByClassName("table");
+
+        for (i = 0; i < t[0].rows.length; i++) {
+            row = t[0].rows[i]
+            if (row.cells[1].innerHTML == "R") {
+                // running
+                row.style.backgroundColor = "#007bff";
+                row.style.color = "white";
+
+            }
+            else if (row.cells[1].innerHTML == "Q") {
+                // queued
+
+                if (row.cells[5].innerHTML.startsWith("-")) {
+                    row.style.color = "white";
+                    row.style.backgroundColor = "green";
+                }
+                else {
+                    // queued, has incomplete dependenceis
+                    row.style.backgroundColor = "lightgreen";
+                }
+            }
+            else if (row.cells[1].innerHTML == "C") {
+                row.style.color = "#999 ";
+            }
+            else if (row.cells[1].innerHTML == "D") {
+                row.style.backgroundColor = "#ffcccc";
+                row.style.color = "slategrey";
+            }
+
+        }
+        $(document).ready(function () {
+            $('table').DataTable(
+                { paging: false }
+            );
+
+        });
+
+    </script>"""
 
 
 def make_html(title, content):
 
-    html = header.format(title=title) + content.replace(
-        '<table border="1" class="dataframe">', '<table class="table table-sm display">'
-    ).replace("<thead>", '<thead class="thead-dark">').replace(
-        '<tr style="text-align: right;">', '<tr style="text-align: center;">'
-    ).replace(
-        "<tr>", '<tr style="text-align: center;">'
-    )
-
-    html += """
-
+    html = f"""{header.format(title=title)}
+{content}
+{qstat_coloring_script()}
 </body>
 </html>
 """

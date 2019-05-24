@@ -4,13 +4,17 @@ import itertools
 from os.path import join, expanduser
 from multiprocessing import cpu_count
 from pydantic import BaseModel
-from typing import List, Deque
+from typing import List, Deque, Union
 
 
 class JobID(BaseModel):
 
     group: int = 1
-    index: int = 0
+    index: int = None
+
+    # @validator('index', pre=True, always=True)
+    # def set_ts_now(cls, v):
+    #     return v or datetime.now()
 
     def __hash__(self):
         return hash(str(self))
@@ -27,7 +31,13 @@ class JobID(BaseModel):
             if "." not in value:
                 job_id.group = int(value)
             else:
-                job_id.group, job_id.index = map(int, value.split("."))
+                g, i = value.split(".")
+                job_id.group = int(g)
+                if i in (None, "*"):
+                    job_id.index = None
+                else:
+                    job_id.index = int(i)
+
         elif isinstance(value, int):
             job_id.group = value
             job_id.index = 0
@@ -99,6 +109,24 @@ class Job(BaseModel):
     def is_done(self):
         return self.status in (JobStatus.Completed, JobStatus.Deleted)
 
+    def as_table_row(self):
+
+        return [
+            self.job_id,
+            self.status.value,
+            self.job_spec.command,
+            self.walltime,
+            self.job_spec.working_dir,
+            "{} / {}".format(
+                ",".join(str(d) for d in self.job_spec.depends)
+                if self.job_spec.depends
+                else "-",
+                ",".join(str(d) for d in self.completed_depends)
+                if self.completed_depends
+                else "-",
+            ),
+        ]
+
 
 class JobQueue(BaseModel):
 
@@ -129,13 +157,28 @@ class JobQueue(BaseModel):
 
         return job
 
+    def get_job_group(self, group_id: int) -> List[Job]:
+
+        return [job for job in self.jobs if job.job_id.group == group_id]
+
 
 class Configuration(BaseModel):
 
     ip_address: str = "127.0.0.1"
-    port: int = 9126
+    port: int = 9200
     last_job_id: JobID = JobID(group=0, index=1)
     log_file: str = join(expanduser("~"), "lqts.log")
     config_file: str = join(expanduser("~"), "lqts.config")
     nworkers: int = max(cpu_count() - 2, 1)
+    ssl_cert: str = None
+
+    @property
+    def url(self):
+        if self.ssl_cert:
+            return f"https://{self.ip_address}:{self.port}"
+        else:
+            return f"http://{self.ip_address}:{self.port}"
+
+
+DEFAULT_CONFIG = Configuration()
 

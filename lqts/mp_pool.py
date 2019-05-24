@@ -188,8 +188,9 @@ class DynamicProcessPool(cf.Executor):
         """
         try:
             # see if any results are available
+
             job, result, stop_time = self.q_output.get(timeout=timeout)
-            self.log.debug("Got result {} = {}".format(job.job_id, result))
+            self.log.info("Got result {} = {}".format(job.job_id, result))
 
             work_item = self._results.pop(job.job_id)
             # job.completed = stop_time
@@ -235,13 +236,15 @@ class DynamicProcessPool(cf.Executor):
 
             # while there is work to do and workers available, start up new jobs
 
-            i = 0
-            while i < len(self._queue):
-                if self._queue[i].job.can_run:
+            j = 0
+            while j < len(self._queue):
+                # find a job that can run - that means it's dependencies have all completed
+                if self._queue[j].job.can_run:
                     work_item = self._queue.popleft()
                     job = work_item.job
                     future = work_item.future
                     break
+                j += 1
             else:
                 return
 
@@ -272,10 +275,10 @@ class DynamicProcessPool(cf.Executor):
                     when=job.started,
                 )
                 callback(event)
-
-            # this_delay = min((self.feed_delay * (1 + 0.5 * i), 5 * self.feed_delay))
-            # time.sleep(this_delay)
             i += 1
+            # this_delay = min((self.feed_delay * (1 + 0.5 * i), 5 * self.feed_delay))
+                # time.sleep(this_delay)
+
 
     def kill_job(self, job_id_to_kill, kill_all=False):
         """
@@ -307,8 +310,8 @@ class DynamicProcessPool(cf.Executor):
                     return True
 
         for work_item in self._queue:
-            if job_id_to_kill == work_item.job_id or kill_all:
-                print(f"killing queued job {work_item.job_id}")
+            if job_id_to_kill == work_item.job.job_id or kill_all:
+                print(f"killing queued job {work_item.job.job_id}")
                 work_item.future._state = cf._base.CANCELLED
                 self._queue.remove(work_item)
                 self._results.pop(work_item.job.job_id)

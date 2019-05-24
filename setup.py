@@ -9,11 +9,13 @@ setup(
     version=1.0,
     entry_points={
         "console_scripts": [
-            "qsub = lqts.qsub:qsub",
-            "qsub-m = lqts.qsub:qsub_m",
-            "qstat = lqts.qstat:qstat",
-            "qclear = lqts.qclear:qclear",
-            "qdel = lqts.qdel:qdel",
+            "qsub = lqts.commands.qsub:qsub",
+            "qsub-m = lqts.commands.qsub:qsub_m",
+            "qsub-argfile = lqts.commands.qsub:qsub_argfile",
+            "qstat = lqts.commands.qstat:qstat",
+            "qclear = lqts.commands.qclear:qclear",
+            "qdel = lqts.commands.qdel:qdel",
+            "qworkers = lqts.commands.qworkers:qworkers",
         ]
     },
 )
