@@ -5,8 +5,8 @@ import platform
 from starlette.testclient import TestClient
 import ujson
 
-from lqts.server2 import app
-from lqts.qsub import qsub
+from lqts.server import app
+from lqts.commands.qsub import qsub
 from lqts.schema import Job, JobSpec, JobID
 
 
@@ -49,7 +49,7 @@ def test_is_queued():
 
 def test_job_depends():
 
-    if platform.platform == "linux":
+    if platform.platform().lower().startswith("linux"):
         job_spec = JobSpec(
             command=f"bash {pwd}/sleepy.sh",
             working_dir=pwd,
@@ -70,7 +70,7 @@ def test_job_depends():
     dependency = response.json()
     # dependency = ujson.loads(dependency)
 
-    job_spec.depends = [JobID.parse(dep) for dep in dependency]
+    job_spec.depends = [JobID.parse_obj(dep) for dep in dependency]
     job_spec.command = 'echo "goodbye"'
     response = client.post("qsub", json=[job_spec.dict()])
 

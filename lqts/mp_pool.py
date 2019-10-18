@@ -24,8 +24,8 @@ from typing import Callable, List, Dict, Any
 from pydantic import BaseModel, PyObject, validator
 import psutil
 
-from .schema import JobID, Job, JobStatus
-
+from .schema import JobID, Job, JobStatus, JobQueue
+from lqts.job_runner import run_command
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
 
@@ -48,6 +48,7 @@ class _WorkItem(BaseModel):
     # def allow_anything2(cls, v):
     #     return v
 
+
 class Event(BaseModel):
 
     job: Job
@@ -58,16 +59,17 @@ class Event(BaseModel):
 def mp_worker_func(q_in: mp.Queue, q_out: mp.Queue):
 
     # job, func, args, kwargs = q_in.get()
-    job, func = q_in.get()
+    job = q_in.get()
 
-    result = func()
+    job = run_command()
     # future.set_result(result)
-    stop_time = datetime.now()
-    job.completed = stop_time
+    # stop_time = datetime.now()
+    # job.completed = stop_time
     # job.walltime = job.completed - job.started
     # print(job)
     # future._state = cf._base.FINISHED
-    q_out.put((job, result, stop_time))
+    q_out.put((job, result))
+
 
 class DummyLogger:
     def debug(self, *args):
@@ -86,7 +88,10 @@ class DynamicProcessPool(cf.Executor):
     It can send notifications of job starts and completions.
     """
 
-    def __init__(self, max_workers=DEFAULT_WORKERS, feed_delay=0.05):
+    def __init__(self, server, max_workers=DEFAULT_WORKERS, feed_delay=0.05):
+
+        self.server = server
+        self.server_queue: JobQueue = server.queue
 
         if max_workers is not None:
             if max_workers <= 0:
@@ -142,7 +147,7 @@ class DynamicProcessPool(cf.Executor):
 
             self.feed_queue()
 
-    def submit(self, func: Callable, job:Job):
+    def submit(self, func: Callable, job: Job):
 
         self.q_count += 1
         # f = MyFuture(func, args, job_id, call_back=call_back)
@@ -189,29 +194,26 @@ class DynamicProcessPool(cf.Executor):
         try:
             # see if any results are available
 
-            job, result, stop_time = self.q_output.get(timeout=timeout)
-            self.log.info("Got result {} = {}".format(job.job_id, result))
+            job = self.q_output.get(timeout=timeout)
+            self.log.info("Got result {} = {}".format(job.job_id, job))
+            self.server.job_done(job)
 
-            work_item = self._results.pop(job.job_id)
-            # job.completed = stop_time
-            job.status = JobStatus.Completed
-            # job.walltime = stop_time - job.started
-            # call backs to notify external things that we are done.
-            for callback in self._event_callbacks:
-                event = Event(
-                    job=job,
-                    event_type="completed",
-                    when=stop_time,
-                )
-                # print(event)
-                callback(event)
+            # work_item = self._results.pop(job.job_id)
+            # # job.completed = stop_time
+            # job.status = JobStatus.Completed
+            # # job.walltime = stop_time - job.started
+            # # call backs to notify external things that we are done.
+            # for callback in self._event_callbacks:
+            #     event = Event(job=job, event_type="completed", when=stop_time)
+            #     # print(event)
+            #     callback(event)
 
-            future = work_item.future
-            future.set_result(result)  # this is where callbacks get triggered
+            # future = work_item.future
+            # future.set_result(result)  # this is where callbacks get triggered
 
-            # If the queues are empty send a signal saying we are empty
-            if len(self._results) == 0 and len(self._queue) == 0:
-                self.__signal_queue.put("empty")
+            # # If the queues are empty send a signal saying we are empty
+            # if len(self._results) == 0 and len(self._queue) == 0:
+            #     self.__signal_queue.put("empty")
 
         except queue.Empty:
             pass
@@ -225,6 +227,39 @@ class DynamicProcessPool(cf.Executor):
         # make sure to feed the queue to keep work going
         self.feed_queue()
 
+    def submit_one_job(self):
+
+        future = cf.Future()
+
+        job = None
+        for j in self.server_queue.queued_jobs:
+            j: Job = j
+            if j.can_run:
+                job = j
+                self.server_queue.queued_jobs.remove(job)
+                break
+        else:
+            return False, None
+
+        future = cf.Future()
+
+        work_item = _WorkItem(job=job, future=future, fn=run_command)
+
+        with self.q_lock:
+            self.log.debug("starting {}".format(job.job_id))
+            # self._queue.append(work_item)
+            self._results[job.job_id] = work_item
+
+            future._state = cf._base.RUNNING
+            # self.log.debug("Spawning {}".format(future))
+            self.q_input.put((job, work_item.fn))
+            # self._result_queue[job_id] = future
+
+            p = mp.Process(target=mp_worker_func, args=(self.q_input, self.q_output))
+            p.start()
+
+        return True, work_item
+
     def feed_queue(self):
         """
         Starts up jobs while there are jobs in the queue and there are workers
@@ -232,53 +267,15 @@ class DynamicProcessPool(cf.Executor):
         """
         # log.debug('feeding q {}'.format(len(self._workers)))
         i = 1
-        while (len(self._workers) < self._max_workers) and (len(self._queue) > 0):
+        while (len(self._workers) < self._max_workers) and (
+            len(self.server_queue.queued_jobs) > 0
+        ):
 
             # while there is work to do and workers available, start up new jobs
+            job_was_submitted, job = self.submit_one_job()
 
-            j = 0
-            while j < len(self._queue):
-                # find a job that can run - that means it's dependencies have all completed
-                if self._queue[j].job.can_run:
-                    work_item = self._queue.popleft()
-                    job = work_item.job
-                    future = work_item.future
-                    break
-                j += 1
-            else:
-                return
-
-            if not future._state == cf._base.PENDING:
-                continue
-
-            future._state = cf._base.RUNNING
-            self.log.debug("Spawning {}".format(future))
-            self.q_input.put(
-                (job, work_item.fn)
-            )
-            # self._result_queue[job_id] = future
-
-            p = mp.Process(target=mp_worker_func, args=(self.q_input, self.q_output))
-            p.start()
-
-            with self.w_lock:
-                # self.active_jobs[job_id] = p.pid()
-                self._workers[work_item.job.job_id] = (work_item, p)
-                # time.sleep(0.2)
-            job.status = JobStatus.Running
-            job.started = datetime.now()
-
-            for callback in self._event_callbacks:
-                event = Event(
-                    job=work_item.job,
-                    event_type="started",
-                    when=job.started,
-                )
-                callback(event)
-            i += 1
-            # this_delay = min((self.feed_delay * (1 + 0.5 * i), 5 * self.feed_delay))
-                # time.sleep(this_delay)
-
+            if job_was_submitted:
+                time.sleep(self.feed_delay)
 
     def kill_job(self, job_id_to_kill, kill_all=False):
         """
