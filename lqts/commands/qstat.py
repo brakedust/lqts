@@ -4,7 +4,7 @@ import os
 
 import ujson
 
-from lqts.schema import Job
+from lqts.schema import Job, DEFAULT_CONFIG
 import lqts.displaytable as dt
 
 import lqts.environment
@@ -18,7 +18,7 @@ import lqts.environment
 @click.option("--debug", is_flag=True, default=False)
 def qstat(debug=False):
 
-    response = requests.get("{DEFAULT_CONFIG.url}/qstat")  # , json=message)
+    response = requests.get(f"{DEFAULT_CONFIG.url}/qstat")  # , json=message)
 
     if debug:
         print(response)

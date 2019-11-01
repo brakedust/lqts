@@ -1,7 +1,6 @@
 var i;
 var row;
-// var t = document.getElementsByClassName("table");
-var t = decument.getElementsById("QstatTable")
+var t = document.getElementById("QstatTable");
 
 for (i = 0; i < t[0].rows.length; i++) {
     row = t[0].rows[i]
@@ -29,11 +28,4 @@ for (i = 0; i < t[0].rows.length; i++) {
         row.style.backgroundColor = "#ffcccc";
         row.style.color = "slategrey";
     }
-
 }
-$(document).ready(function () {
-    $('table').DataTable(
-        { paging: false }
-    );
-
-});

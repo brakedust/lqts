@@ -38,6 +38,7 @@ def render_qstat_page(include_complete: bool = False):
     buttonbar = env.get_template("button_bar.jinja").render(
         workercount=app.pool._max_workers
     )
+    script_block = env.get_template("js_script_template.jinja").render()
 
     c = Counter([job.status.value for job in app.queue.jobs])
     for letter in "QDRC":
@@ -46,12 +47,15 @@ def render_qstat_page(include_complete: bool = False):
 
     summary_text = "  ".join(f"{s}:{c}" for s, c in c.items())
 
+
+
     page_text = page_template.render(
         page_title="Queue Status",
         navbar="",
         buttonbar=buttonbar,
         summary=summary_text,
         table=render_qstat_table(jobs, include_complete),
+        script_block=script_block
     )
 
     return page_text
