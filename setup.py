@@ -10,8 +10,9 @@ setup(
     entry_points={
         "console_scripts": [
             "qsub = lqts.commands.qsub:qsub",
-            "qsub-m = lqts.commands.qsub:qsub_m",
+            "qsub-multi = lqts.commands.qsub:qsub_m",
             "qsub-argfile = lqts.commands.qsub:qsub_argfile",
+            "qstart = lqts.commands.qstart:qstart",
             "qstat = lqts.commands.qstat:qstat",
             "qclear = lqts.commands.qclear:qclear",
             "qdel = lqts.commands.qdel:qdel",

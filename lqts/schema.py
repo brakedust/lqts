@@ -3,14 +3,17 @@ from datetime import datetime, timedelta
 import itertools
 from os.path import join, expanduser
 from multiprocessing import cpu_count
-from pydantic import BaseModel
-from typing import List, Deque, Union
+import concurrent.futures as cf
+from pydantic import BaseModel, BaseSettings
+from typing import List, Deque, Union, Dict, Any
+from queue import PriorityQueue
+from uuid import uuid4
 
 
 class JobID(BaseModel):
 
     group: int = 1
-    index: int = None
+    index: int = 0
 
     # @validator('index', pre=True, always=True)
     # def set_ts_now(cls, v):
@@ -22,12 +25,16 @@ class JobID(BaseModel):
     def __str__(self):
         return f"{self.group}.{self.index}"
 
+    # def __eq__(self, other):
+    # return (self.group == other.group) and (self.index == other.index)
+
     @staticmethod
-    def parse(value):
-        job_id = JobID()
+    def parse_obj(value):
+
         if isinstance(value, JobID):
             return value
         elif isinstance(value, str):
+            job_id = JobID()
             if "." not in value:
                 job_id.group = int(value)
             else:
@@ -37,15 +44,14 @@ class JobID(BaseModel):
                     job_id.index = None
                 else:
                     job_id.index = int(i)
-
+            return job_id
         elif isinstance(value, int):
+            job_id = JobID()
             job_id.group = value
             job_id.index = 0
+            return job_id
         else:
-            raise ValueError(
-                f"JobID.parse excepts types int, JobID, or str. You provided {value} of type {type(value)}."
-            )
-        return job_id
+            return super().parse_obj(value)
 
 
 class JobStatus(enum.Enum):
@@ -63,6 +69,7 @@ class JobSpec(BaseModel):
     working_dir: str
     log_file: str = None
     priority: int = 10
+    ncores: int = 1
     depends: List[JobID] = []
 
 
@@ -80,12 +87,18 @@ class Job(BaseModel):
 
     completed_depends: List[JobID] = []
 
+    def __gt__(self, other: "Job"):
+        return self.job_spec.priority > other.job_spec.priority
+
+    def __eq__(self, other: "Job"):
+        return self.job_spec.priority == other.job_spec.priority
+
     @property
-    def can_run(self):
+    def can_run(self) -> bool:
         return len(self.job_spec.depends) == 0
 
     @property
-    def walltime(self):
+    def walltime(self) -> timedelta:
 
         if self.completed is not None:
             return self.completed - self.started
@@ -94,7 +107,7 @@ class Job(BaseModel):
         else:
             return timedelta(0)
 
-    def _should_prune(self):
+    def _should_prune(self) -> bool:
         now = datetime.now()
         if JobStatus.Completed:
             if now - self.completed > timedelta(seconds=2 * 3600):
@@ -106,10 +119,10 @@ class Job(BaseModel):
         else:
             return False
 
-    def is_done(self):
+    def is_done(self) -> bool:
         return self.status in (JobStatus.Completed, JobStatus.Deleted)
 
-    def as_table_row(self):
+    def as_table_row(self) -> list:
 
         return [
             self.job_id,
@@ -128,41 +141,84 @@ class Job(BaseModel):
         ]
 
 
+# class PriorityQueueThing(PriorityQueue):
+#     @classmethod
+#     def __get_validators__(cls):
+#         yield cls.validate
+
+#     @classmethod
+#     def validate(cls, v):
+#         if not isinstance(v, PriorityQueue):
+#             raise ValueError(
+#                 f"PriorityQueuething: PriorityQueue expected not {type(v)}"
+#             )
+#         return v
+
+
 class JobQueue(BaseModel):
 
-    jobs: List[Job] = []
+    queued_jobs: list = []
+
+    running_jobs: Dict[JobID, Job] = {}
+
+    completed_jobs: List[Job] = []
     pruned_jobs: List[Job] = []
 
-    current_index: int = 1
-
-    def prune(self):
-        self.pruned_jobs = [
-            job
-            for job in self.pruned_jobs
-            if (datetime.now() - job.completed) < timedelta(seconds=4 * 3600)
-        ]
-        self.pruned_jobs += [job for job in self.jobs if job._should_prune()]
-        self.jobs = [job for job in self.jobs if not job._should_prune()]
-
-    def submit(self, job_spec: JobSpec, job_id=None) -> Job:
-
-        if job_id is None:
-            job_id = JobID(group=self.current_index)
-            self.current_index += 1
-
-        job = Job(job_id=job_id, job_spec=job_spec)
-        job.status = JobStatus.Queued
-        job.submitted = datetime.now()
-        self.jobs.append(job)
-
-        return job
+    current_group: int = 1
 
     def get_job_group(self, group_id: int) -> List[Job]:
 
         return [job for job in self.jobs if job.job_id.group == group_id]
 
+    def submit(self, job_spec: JobSpec, job_id=None) -> Job:
 
-class Configuration(BaseModel):
+        if job_id is None:
+            job_id = JobID(group=self.current_group)
+            self.current_group += 1
+
+        job = Job(job_id=job_id, job_spec=job_spec)
+        job.status = JobStatus.Queued
+        job.submitted = datetime.now()
+        self.queued_jobs.append(job)
+
+        return job
+
+    def next_job(self):
+
+        for job in sorted(
+            self.queued_jobs, key=lambda j: j.job_spec.priority, reverse=True
+        ):
+            self.queued_jobs.remove(job)
+            self.running_jobs[job.job_id] = job
+            return job
+
+    def on_job_finished(self, job_id):
+        job = self.running_jobs.pop(job_id)
+        self.completed_jobs.append(job)
+
+    def prune(self):
+
+        num_jobs = DEFAULT_CONFIG.prune_job_limt
+        pruned_jobs = []
+        if len(self.completed_jobs) > num_jobs:
+            pruned_jobs = self.completed_jobs[num_jobs:]
+            self.completed_jobs = self.completed_jobs[:num_jobs]
+
+        now = datetime.now()
+        for job in self.completed_jobs[:]:
+            if now - job.completed > DEFAULT_CONFIG.prune_time_limit:
+                pruned_jobs.append(job)
+                self.completed_jobs.remove(job)
+
+
+class WorkItem(BaseModel):
+
+    job: Job
+    future: Any
+    fn: Any
+
+
+class Configuration(BaseSettings):
 
     ip_address: str = "127.0.0.1"
     port: int = 9200
@@ -171,6 +227,9 @@ class Configuration(BaseModel):
     config_file: str = join(expanduser("~"), "lqts.config")
     nworkers: int = max(cpu_count() - 2, 1)
     ssl_cert: str = None
+
+    prune_time_limit: timedelta = timedelta(days=1)
+    prune_job_limt: int = 200
 
     @property
     def url(self):

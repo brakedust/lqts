@@ -11,7 +11,7 @@ Functions :
 
 """
 
-from sqs.util import sigdigits, isfloat
+from lqts.util import sigdigits, isfloat
 from copy import copy
 import math
 from collections import OrderedDict
@@ -387,7 +387,7 @@ def make_table(
                             if wrap_columns:
                                 newtable[irow][icol] = textwrap.fill(val, cw)
                             else:
-                                newtable[irow][icol] = textwrap.shorten(val, cw, "...")
+                                newtable[irow][icol] = textwrap.shorten(val, cw)
         table = newtable
 
     p = "+"
@@ -447,17 +447,29 @@ def _test():
     for subtable in t_split:
         print(make_table(subtable))
 
+
 def make_html_table(rows):
 
     content = ['<table class="table table-sm display">']
 
-    content.append('<thead class="thead-dark" style="text-align: center;">' + "".join(f"<th>{item}</th>" for item in rows[0]) + "</thead>" + "\n" )
+    content.append(
+        '<thead class="thead-dark" style="text-align: center;">'
+        + "".join(f"<th>{item}</th>" for item in rows[0])
+        + "</thead>"
+        + "\n"
+    )
     for row in rows[1:]:
-        content.append('<tr style="text-align: center;">' + "".join(f"<td>{item}</td>" for item in row) + "</tr>" + "\n")
+        content.append(
+            '<tr style="text-align: center;">'
+            + "".join(f"<td>{item}</td>" for item in row)
+            + "</tr>"
+            + "\n"
+        )
 
     content.append("</table>")
 
     return "\n".join(content)
+
 
 if __name__ == "__main__":
 

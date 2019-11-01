@@ -3,6 +3,7 @@ import logging
 from functools import partial
 from typing import List
 from collections import defaultdict, Counter
+from datetime import datetime
 
 from fastapi import FastAPI
 import ujson
@@ -33,6 +34,8 @@ class Application(FastAPI):
         self.pool = None
         self.__start_workers()
 
+        self.log.info(f"Visit {self.config.url} to view the queue status")
+
     def __start_workers(self, nworkers: int = DEFAULT_WORKERS):
         """Starts the worker pool
 
@@ -45,8 +48,8 @@ class Application(FastAPI):
         #     nworkers = self.config.nworkers
 
         # self.pool = cf.ProcessPoolExecutor(max_workers=nworkers)
-        self.pool = DynamicProcessPool(max_workers=nworkers, feed_delay=0)
-        self.pool.add_event_callback(self.receive_pool_events)
+        self.pool = DynamicProcessPool(server=self, max_workers=nworkers, feed_delay=0)
+        # self.pool.add_event_callback(self.receive_pool_events)
         self.log.info("Worker pool started with {} workers".format(nworkers))
 
     def _setup_logging(self, log_file: str):
@@ -93,7 +96,7 @@ class Application(FastAPI):
             dict containing details about the job
         """
 
-        for job in self.queue.jobs:
+        for job in self.queue.running_jobs + self.queue.queued_jobs:
             if job.job_id == job_id:
                 return job
 
@@ -113,11 +116,11 @@ class Application(FastAPI):
         job.status = event.job.status
 
         # print("job is job2 = ", job is job2)
-        if event.event_type == "started" and len(self.queue.jobs) > 0:
+        if event.event_type == "started" and len(self.queue.runnings_jobs) > 0:
             job.started = event.job.started
             self.log.info("  +Started job {} at {}".format(job.job_id, job.started))
 
-        elif event.event_type == "completed" and len(self.queue.jobs) > 0:
+        elif event.event_type == "completed" and len(self.queue.running_jobs) > 0:
             job.completed = event.job.completed
             self.log.info("  -Finished job {} at {}".format(job.job_id, job.completed))
 
@@ -143,15 +146,15 @@ class Application(FastAPI):
     def submit_jobs(self, job_specs: List[JobSpec]):
 
         job_ids = []
-        group = self.queue.current_index
-        self.queue.current_index += 1
+        group = self.queue.current_group
+        self.queue.current_group += 1
         for i, job_spec in enumerate(job_specs):
             job_id = JobID(group=group, index=i)
             job = self.queue.submit(job_spec, job_id=job_id)
             if job_spec.depends:
 
                 for dep in job_spec.depends:
-                    dep_job_id = JobID.parse(dep)
+                    dep_job_id = JobID.parse_obj(dep)
                     dep_job = self.get_job_by_id(dep_job_id)
                     if dep_job.status not in (JobStatus.Completed, JobStatus.Deleted):
                         self.dependencies[dep_job_id].append(job.job_id)
@@ -163,7 +166,7 @@ class Application(FastAPI):
                 )
             )
 
-            self.pool.submit(partial(run_command, job), job)
+            # self.pool.submit(partial(run_command, job), job)
 
         return job_ids
 
@@ -269,7 +272,7 @@ def qdel(job_ids: List[JobID]):
 
     deleted_jobs = []
     for jid in job_ids:
-        job_id = JobID.parse(jid)
+        job_id = JobID.parse_obj(jid)
         app.pool.kill_job(job_id)
         job = app.get_job_by_id(job_id)
         job.status = JobStatus.Deleted
@@ -279,10 +282,39 @@ def qdel(job_ids: List[JobID]):
     return {"Deleted jobs": dead_jobs}
 
 
-@app.get("/qstat2")
+@app.get("/qstatus")
 def qstat_html(complete="no"):
     from lqts.html.render_qstat import render_qstat_page
     from starlette.responses import HTMLResponse
 
     complete = complete == "yes"
     return HTMLResponse(render_qstat_page(complete))
+
+
+@app.get("/job_request")
+def job_request():
+
+    job = app.queue.queued_jobs.pop()
+    if job is None:
+        return "{}"
+    else:
+        job.started = datetime.now()
+        job.status = JobStatus.Running
+        app.queue.running_jobs[job.job_id] = job
+        app.log.info("  +Started job {} at {}".format(job.job_id, job.started))
+        return job
+
+
+@app.post("/job_done")
+def job_done(done_job: Job):
+
+    job: Job = app.queue.running_jobs.pop(done_job.job_id)
+    job.status = JobStatus.Completed
+    job.completed = done_job.completed
+
+    app.queue.completed_jobs.append(job)
+
+
+@app.post("/job_started")
+def job_started():
+    pass
