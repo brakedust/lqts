@@ -17,7 +17,6 @@ setup(
             "qclear = lqts.commands.qclear:qclear",
             "qdel = lqts.commands.qdel:qdel",
             "qworkers = lqts.commands.qworkers:qworkers",
-            "qstart = lqts.commands.qstart:qstart",
         ]
     },
 )

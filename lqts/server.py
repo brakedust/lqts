@@ -67,7 +67,7 @@ class Application(FastAPI):
         self.log.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter(
-            "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
+            fmt   # "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
         )
 
         if log_file:
@@ -95,10 +95,13 @@ class Application(FastAPI):
         job
             dict containing details about the job
         """
-
-        for job in self.queue.running_jobs + self.queue.queued_jobs:
-            if job.job_id == job_id:
-                return job
+        if job_id in self.queue.running_jobs:
+            return self.queue.running_jobs[job_id]
+        else:
+            for job in self.queue.queued_jobs + self.queue.completed_jobs:
+                if job.job_id == job_id:
+                    return job
+        return None
 
     def receive_pool_events(self, event: Event):
         """
@@ -139,6 +142,46 @@ class Application(FastAPI):
                         )
                 self.dependencies.pop(job.job_id)
 
+    def job_done_handler(self, job: Job):
+        self.queue.completed_jobs.append(self.queue.running_jobs.pop(job.job_id))
+        self.log.info(f"--- Completed   job {job.job_id} at {job.completed.isoformat()}")
+        print("# Running jobs = ", len(self.queue.running_jobs))
+
+        # if job.job_id in self.dependencies:
+
+        #     for dependent in self.dependencies[job.job_id]:
+        #         waiting_job: Job = self.get_job_by_id(dependent)
+        #         waiting_job.job_spec.depends.remove(job.job_id)
+        #         waiting_job.completed_depends.append(job.job_id)
+        #         if len(waiting_job.job_spec.depends) == 0:
+
+        #             self.log.info(
+        #                 ">>> Dependencies for job {} now complete".format(
+        #                     waiting_job.job_id
+        #                 )
+        #             )
+        #     self.dependencies.pop(job.job_id)
+
+    def check_can_job_run(self, job: Job):
+
+        dependencies: List[Job] = [self.get_job_by_id(id_) for id_ in job.job_spec.depends]
+
+        if not dependencies:
+            return True
+
+        running_deps = [d.job_id for d in dependencies if (d.job_id in self.queue.running_jobs)]
+        if running_deps:
+            print(f'>w<{job.job_id} waiting on running jobs: {running_deps}')
+            return False
+
+        queued_deps = [d.job_id for d in dependencies if (d in self.queue.queued_jobs)]
+        if queued_deps:
+            print(f'>w<{job.job_id} Waiting on queued jobs: {queued_deps}')
+            print(self.queue.queued_jobs)
+            return False
+
+        return True
+
     def queue_empty(self):
 
         return any(not job.is_done() for job in self.queue.jobs)
@@ -151,20 +194,19 @@ class Application(FastAPI):
         for i, job_spec in enumerate(job_specs):
             job_id = JobID(group=group, index=i)
             job = self.queue.submit(job_spec, job_id=job_id)
-            if job_spec.depends:
+            # if job_spec.depends:
 
-                for dep in job_spec.depends:
-                    dep_job_id = JobID.parse_obj(dep)
-                    dep_job = self.get_job_by_id(dep_job_id)
-                    if dep_job.status not in (JobStatus.Completed, JobStatus.Deleted):
-                        self.dependencies[dep_job_id].append(job.job_id)
+            #     for dep in job_spec.depends:
+            #         dep_job_id = JobID.parse_obj(dep)
+            #         dep_job = self.get_job_by_id(dep_job_id)
+            #         if dep_job.status not in (JobStatus.Completed, JobStatus.Deleted):
+            #             self.dependencies[dep_job_id].append(job.job_id)
 
             job_ids.append(str(job.job_id))
             self.log.info(
-                "+++Assimilated job {} at {} - {}".format(
-                    job.job_id, job.submitted, job.job_spec.command
-                )
+                f"+++ Assimilated job {job.job_id} at {job.submitted.isoformat()} - {job.job_spec.command}"
             )
+            self.log.info(f"Job dependencies for {job.job_id}: {[job.job_spec.depends]}")
 
             # self.pool.submit(partial(run_command, job), job)
 
@@ -192,12 +234,12 @@ def root():
 
 @app.get("/qstat")
 def get_queue():
-    return [j.json() for j in app.queue.jobs]
+    return [j.json() for j in app.queue.running_jobs.values()] + [j.json() for j in app.queue.queued_jobs]
 
 
 @app.post("/qsub")
 def qsub(job_specs: List[JobSpec]):
-
+    print(f"Submitted job specs {job_specs}")
     return app.submit_jobs(job_specs)
 
 

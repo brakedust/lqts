@@ -27,7 +27,10 @@ def qsub(command, args, priority=10, logfile=None, depends=None, debug=False):
     # print(command)
     working_dir = encode_path(os.getcwd())
 
-    depends = [JobID.parse(d) for d in depends]
+    if depends:
+        depends = [JobID.parse_obj(d) for d in depends]
+    else:
+        depends = []
 
     job_spec = JobSpec(
         command=command_str,
@@ -36,7 +39,7 @@ def qsub(command, args, priority=10, logfile=None, depends=None, debug=False):
         priority=priority,
         depends=depends,
     )
-
+    print(job_spec)
     # json_string = ujson.dumps([job_spec.dict()]).replace("\\", "")
     # print(json_string)
     response = requests.post(f"{DEFAULT_CONFIG.url}/qsub", json=[job_spec.dict()])

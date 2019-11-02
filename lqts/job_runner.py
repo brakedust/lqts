@@ -89,6 +89,7 @@ Started: {}
         eol = "\r\n"
         command = command.strip()
 
+    # print(command)
     p = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
     )

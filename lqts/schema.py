@@ -70,7 +70,7 @@ class JobSpec(BaseModel):
     log_file: str = None
     priority: int = 10
     ncores: int = 1
-    depends: List[JobID] = []
+    depends: List[JobID] = None
 
 
 class Job(BaseModel):
@@ -95,6 +95,7 @@ class Job(BaseModel):
 
     @property
     def can_run(self) -> bool:
+        # self.job_spec.depends
         return len(self.job_spec.depends) == 0
 
     @property
