@@ -19,7 +19,7 @@ def encode_path(p):
 @click.argument("args", nargs=-1)
 @click.option("--priority", default=10, type=int)
 @click.option("--logfile", default="", type=str)
-@click.option("-d", "--depends", cls=OptionNargs, default=list)
+@click.option("-d", "--depends", cls=OptionNargs, default=list, type=list)
 @click.option("--debug", is_flag=True, default=False)
 def qsub(command, args, priority=10, logfile=None, depends=None, debug=False):
 
@@ -27,6 +27,10 @@ def qsub(command, args, priority=10, logfile=None, depends=None, debug=False):
     # print(command)
     working_dir = encode_path(os.getcwd())
 
+    if len(depends) == 1 and " " in depends[0]:
+        depends = depends[0].split()
+
+    print(depends)
     if depends:
         depends = [JobID.parse_obj(d) for d in depends]
     else:
@@ -58,14 +62,20 @@ def qsub(command, args, priority=10, logfile=None, depends=None, debug=False):
 @click.argument("files", nargs=1)
 @click.argument("args", nargs=-1)
 @click.option("--priority", default=10, type=int)
-@click.option("--logfile", default="", type=str)
+# @click.option("--logfile", default="", type=str)
 @click.option("-d", "--depends", cls=OptionNargs, default=list)
 @click.option("--debug", is_flag=True, default=False)
-def qsub_m(command, files, args, priority=10, logfile=None, depends=None, debug=False):
+@click.option("--no-log", is_flag=True, default=False)
+def qsub_m(command, files, args, priority=10, logfile=None, depends=None, debug=False, no_log=False):
+    """
+    Run **command** for each file in **files**.  Pass in args.
 
-    from glob import glob
+    $ qsub mycommand.exe *.inp -- --do --it
+    """
 
-    files = glob(files)
+    from glob import iglob
+
+    files = iglob(files)
 
     job_specs = []
     working_dir = encode_path(os.getcwd())
@@ -76,6 +86,10 @@ def qsub_m(command, files, args, priority=10, logfile=None, depends=None, debug=
         # print(f, print(args))
         command_str = f"{command} {f} " + " ".join(f'"{arg}"' for arg in args)
         # print(command)
+        if no_log:
+            logfile = None
+        else:
+            logfile = f + '.lqts.log'
 
         js = JobSpec(
             command=command_str,

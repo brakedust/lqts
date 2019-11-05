@@ -97,55 +97,67 @@ class Application(FastAPI):
         """
         if job_id in self.queue.running_jobs:
             return self.queue.running_jobs[job_id]
+        elif job_id in self.queue.queued_jobs:
+            return self.queue.queued_jobs[job_id]
         else:
-            for job in self.queue.queued_jobs + self.queue.completed_jobs:
+            for job in self.queue.completed_jobs:
                 if job.job_id == job_id:
                     return job
         return None
 
-    def receive_pool_events(self, event: Event):
-        """
-        The sqs.mp_pool.DynamicProcessPool sends some events when jobs start
-        and stop.  The method is registered as a callback to receive these
-        events.
+    # def receive_pool_events(self, event: Event):
+    #     """
+    #     The sqs.mp_pool.DynamicProcessPool sends some events when jobs start
+    #     and stop.  The method is registered as a callback to receive these
+    #     events.
 
-        Parameters
-        ----------
-        event: dict
-            dict containing the data from the event
-        """
+    #     Parameters
+    #     ----------
+    #     event: dict
+    #         dict containing the data from the event
+    #     """
 
-        job = self.get_job_by_id(event.job.job_id)
-        job.status = event.job.status
+    #     job = self.get_job_by_id(event.job.job_id)
+    #     job.status = event.job.status
 
-        # print("job is job2 = ", job is job2)
-        if event.event_type == "started" and len(self.queue.runnings_jobs) > 0:
-            job.started = event.job.started
-            self.log.info("  +Started job {} at {}".format(job.job_id, job.started))
+    #     # print("job is job2 = ", job is job2)
+    #     if event.event_type == "started" and len(self.queue.runnings_jobs) > 0:
+    #         job.started = event.job.started
+    #         self.log.info("  +Started job {} at {}".format(job.job_id, job.started))
 
-        elif event.event_type == "completed" and len(self.queue.running_jobs) > 0:
-            job.completed = event.job.completed
-            self.log.info("  -Finished job {} at {}".format(job.job_id, job.completed))
+    #     elif event.event_type == "completed" and len(self.queue.running_jobs) > 0:
+    #         job.completed = event.job.completed
+    #         self.log.info("  -Finished job {} at {}".format(job.job_id, job.completed))
 
-            if job.job_id in self.dependencies:
-                for dependent in self.dependencies[job.job_id]:
-                    waiting_job: Job = self.get_job_by_id(dependent)
-                    waiting_job.job_spec.depends.remove(job.job_id)
-                    waiting_job.completed_depends.append(job.job_id)
-                    if len(waiting_job.job_spec.depends) == 0:
-                        # waiting_job.can_run = True
-                        # print(self.dependencies)
-                        self.log.info(
-                            ">>> Dependencies for job {} now complete".format(
-                                waiting_job.job_id
-                            )  # , job.job_id, job.completed)
-                        )
-                self.dependencies.pop(job.job_id)
+    #         if job.job_id in self.dependencies:
+    #             for dependent in self.dependencies[job.job_id]:
+    #                 waiting_job: Job = self.get_job_by_id(dependent)
+    #                 waiting_job.job_spec.depends.remove(job.job_id)
+    #                 waiting_job.completed_depends.append(job.job_id)
+    #                 if len(waiting_job.job_spec.depends) == 0:
+    #                     # waiting_job.can_run = True
+    #                     # print(self.dependencies)
+    #                     self.log.info(
+    #                         ">>> Dependencies for job {} now complete".format(
+    #                             waiting_job.job_id
+    #                         )  # , job.job_id, job.completed)
+    #                     )
+    #             self.dependencies.pop(job.job_id)
+
+    def job_started_handler(self, job: Job):
+        job = self.queue.queued_jobs.pop(job.job_id)
+        self.queue.running_jobs[job.job_id] = job
+        job.status = JobStatus.Running
+        job.started = datetime.now()
+        self.log.info(f"--- Started    job {job.job_id} at {job.started.isoformat()}")
 
     def job_done_handler(self, job: Job):
-        self.queue.completed_jobs.append(self.queue.running_jobs.pop(job.job_id))
+        job = self.queue.running_jobs.pop(job.job_id)
+        job.status = JobStatus.Completed
+        job.completed = datetime.now()
+        self.queue.completed_jobs.append(job)
         self.log.info(f"--- Completed   job {job.job_id} at {job.completed.isoformat()}")
-        print("# Running jobs = ", len(self.queue.running_jobs))
+        # print("# Running jobs = ", len(self.queue.running_jobs))
 
         # if job.job_id in self.dependencies:
 
@@ -162,21 +174,28 @@ class Application(FastAPI):
         #             )
         #     self.dependencies.pop(job.job_id)
 
-    def check_can_job_run(self, job: Job):
+    def check_can_job_run(self, job_id: JobID):
 
+        job = self.get_job_by_id(job_id)
         dependencies: List[Job] = [self.get_job_by_id(id_) for id_ in job.job_spec.depends]
+
+        dependencies = [d for d in dependencies if d is not None]
 
         if not dependencies:
             return True
 
+        DEBUG = False
+        # print(dependencies)
         running_deps = [d.job_id for d in dependencies if (d.job_id in self.queue.running_jobs)]
         if running_deps:
-            print(f'>w<{job.job_id} waiting on running jobs: {running_deps}')
+            if DEBUG:
+                print(f'>w<{job.job_id} waiting on running jobs: {running_deps}')
             return False
 
-        queued_deps = [d.job_id for d in dependencies if (d in self.queue.queued_jobs)]
+        queued_deps = [d.job_id for d in dependencies if (d.job_id in self.queue.queued_jobs)]
         if queued_deps:
-            print(f'>w<{job.job_id} Waiting on queued jobs: {queued_deps}')
+            if DEBUG:
+                print(f'>w<{job.job_id} Waiting on queued jobs: {queued_deps}')
             print(self.queue.queued_jobs)
             return False
 
@@ -233,8 +252,26 @@ def root():
 
 
 @app.get("/qstat")
-def get_queue():
-    return [j.json() for j in app.queue.running_jobs.values()] + [j.json() for j in app.queue.queued_jobs]
+def get_queue(options: dict):
+    print(options)
+    queue_status = []
+
+    # print("qstat 1")
+    for jid, job in app.queue.running_jobs.items():
+        # print(jid)
+        # print(job)
+        # print()
+        queue_status.append(job.json())
+
+    # print("qstat 2")
+    for jid, job in app.queue.queued_jobs.items():
+        queue_status.append(job.json())
+
+    if options.get('completed', False):
+        queue_status.extend([j.json() for j in app.queue.completed_jobs])
+    # print("qstat 3")
+
+    return queue_status  #[j.json() for j in app.queue.running_jobs.values()] + [j.json() for j in app.queue.queued_jobs.value()]
 
 
 @app.post("/qsub")
@@ -315,10 +352,20 @@ def qdel(job_ids: List[JobID]):
     deleted_jobs = []
     for jid in job_ids:
         job_id = JobID.parse_obj(jid)
-        app.pool.kill_job(job_id)
         job = app.get_job_by_id(job_id)
-        job.status = JobStatus.Deleted
-        deleted_jobs.append(job_id)
+
+        should_delete = False
+        if job_id in app.queue.running_jobs:
+            app.pool.kill_job(job_id)
+            should_delete = True
+
+        elif job in app.queue.queued_jobs:
+            should_delete = True
+
+        if should_delete:
+            job.status = JobStatus.Deleted
+            app.queue.completed_jobs.append(job)
+            deleted_jobs.append(job_id)
 
     dead_jobs = [str(jid) for jid in deleted_jobs]
     return {"Deleted jobs": dead_jobs}

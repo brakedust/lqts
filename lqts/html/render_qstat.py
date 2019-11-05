@@ -14,13 +14,17 @@ env = Environment(
     loader=PackageLoader("lqts", "html"), autoescape=select_autoescape(["html", "xml"])
 )
 
+STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "D": 4, "I": 5}
+
 
 def render_qstat_table(jobs: List[Job], include_complete: bool = False):
 
-    header = ["ID", "St", "Command", "Walltime", "WorkingDir", "Dep / CmplDep"]
+    header = ["ID", "St", "Command", "Walltime", "WorkingDir", "Dependencies"]
     rows = (
         job.as_table_row()
-        for job in sorted(jobs, key=lambda job: job.status.value, reverse=True)
+        for job in sorted(
+            jobs, key=lambda job: STATUS_SORT_ORDER[job.status.value], reverse=True
+        )
         if include_complete or job.status is not JobStatus.Completed
     )
 
@@ -32,7 +36,7 @@ def render_qstat_table(jobs: List[Job], include_complete: bool = False):
 
 def render_qstat_page(include_complete: bool = False):
 
-    jobs = app.queue.jobs
+    jobs = app.queue.all_jobs
 
     page_template = env.get_template("page_template.jinja")
     buttonbar = env.get_template("button_bar.jinja").render(
@@ -40,14 +44,12 @@ def render_qstat_page(include_complete: bool = False):
     )
     script_block = env.get_template("js_script_template.jinja").render()
 
-    c = Counter([job.status.value for job in app.queue.jobs])
+    c = Counter([job.status.value for job in jobs])
     for letter in "QDRC":
         if letter not in c:
             c[letter] = 0
 
     summary_text = "  ".join(f"{s}:{c}" for s, c in c.items())
-
-
 
     page_text = page_template.render(
         page_title="Queue Status",
@@ -55,7 +57,7 @@ def render_qstat_page(include_complete: bool = False):
         buttonbar=buttonbar,
         summary=summary_text,
         table=render_qstat_table(jobs, include_complete),
-        script_block=script_block
+        script_block=script_block,
     )
 
     return page_text

@@ -19,5 +19,15 @@ setup(
             "qworkers = lqts.commands.qworkers:qworkers",
         ]
     },
+    setup_requires=[
+        "click",
+        "requests",
+        "pydantic<0.32.2",
+        "fastapi",
+        "ujson",
+        "uvicorn",
+        "psutil",
+        "jinja2",
+    ],
 )
 

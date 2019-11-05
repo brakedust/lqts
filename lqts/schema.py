@@ -85,7 +85,7 @@ class Job(BaseModel):
     # walltime: timedelta = None
     job_spec: JobSpec = None
 
-    completed_depends: List[JobID] = []
+    # completed_depends: List[JobID] = []
 
     def __gt__(self, other: "Job"):
         return self.job_spec.priority > other.job_spec.priority
@@ -131,14 +131,7 @@ class Job(BaseModel):
             self.job_spec.command,
             self.walltime,
             self.job_spec.working_dir,
-            "{} / {}".format(
-                ",".join(str(d) for d in self.job_spec.depends)
-                if self.job_spec.depends
-                else "-",
-                ",".join(str(d) for d in self.completed_depends)
-                if self.completed_depends
-                else "-",
-            ),
+            ",".join(str(d) for d in self.job_spec.depends)
         ]
 
 
@@ -158,18 +151,19 @@ class Job(BaseModel):
 
 class JobQueue(BaseModel):
 
-    queued_jobs: list = []
+    queued_jobs: Dict[JobID, Job] = {}
 
     running_jobs: Dict[JobID, Job] = {}
 
     completed_jobs: List[Job] = []
     pruned_jobs: List[Job] = []
+    deleted_jobs: List[Job] = []
 
     current_group: int = 1
 
     def get_job_group(self, group_id: int) -> List[Job]:
-
-        return [job for job in self.jobs if job.job_id.group == group_id]
+        pass
+        # return [job for job in self.jobs if job.job_id.group == group_id]
 
     def submit(self, job_spec: JobSpec, job_id=None) -> Job:
 
@@ -180,7 +174,8 @@ class JobQueue(BaseModel):
         job = Job(job_id=job_id, job_spec=job_spec)
         job.status = JobStatus.Queued
         job.submitted = datetime.now()
-        self.queued_jobs.append(job)
+        self.queued_jobs[job.job_id] = job
+        # print("Submitted: ", job,"\n")
 
         return job
 
@@ -211,6 +206,16 @@ class JobQueue(BaseModel):
                 pruned_jobs.append(job)
                 self.completed_jobs.remove(job)
 
+    @property
+    def all_jobs(self):
+
+        return (
+            list(self.running_jobs.values()) +
+            list(self.queued_jobs.values()) +
+            self.completed_jobs +
+            self.deleted_jobs +
+            self.pruned_jobs
+        )
 
 class WorkItem(BaseModel):
 

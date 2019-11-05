@@ -20,7 +20,7 @@ import lqts.environment
 @click.option("--debug", is_flag=True, default=False)
 def qdel(job_ids, debug=False):
 
-    job_ids = [JobID.parse(jid).dict() for jid in job_ids]
+    job_ids = [JobID.parse_obj(jid).dict() for jid in job_ids]
 
     response = requests.post(f"{DEFAULT_CONFIG.url}/qdel", json=job_ids)
 
