@@ -9,6 +9,8 @@ from typing import List, Deque, Union, Dict, Any
 from queue import PriorityQueue
 from uuid import uuid4
 
+DEBUG = False
+
 
 class JobID(BaseModel):
 
@@ -53,6 +55,20 @@ class JobID(BaseModel):
         else:
             return super().parse_obj(value)
 
+    # def dict(self, *args, **kwargs):
+    #     return self.__str__()
+
+    def __lt__(self, other: 'JobID'):
+
+        if self.group == other.group:
+            return self.index < other.index
+        else:
+            return self.group < other.group
+
+    # def __eq__(self, other: 'JobID'):
+
+    #     return (self.group == other.group) and (self.index == other.index)
+
 
 class JobStatus(enum.Enum):
 
@@ -71,6 +87,12 @@ class JobSpec(BaseModel):
     priority: int = 10
     ncores: int = 1
     depends: List[JobID] = None
+
+    def __lt__(self, other: 'JobSpec'):
+        return self.priority > other.priority
+
+    def __eq__(self, other: 'JobSpec'):
+        return self.priority == other.priority
 
 
 class Job(BaseModel):
@@ -133,7 +155,17 @@ class Job(BaseModel):
             self.job_spec.working_dir,
             ",".join(str(d) for d in self.job_spec.depends)
         ]
+    def _sort_params(self):
 
+        return (self.job_spec, self.job_id)
+
+    def __lt__(self, other):
+
+        return self._sort_params() < other._sort_params()
+
+    def __eq__(self, other):
+
+        return self._sort_params() == other._sort_params()
 
 # class PriorityQueueThing(PriorityQueue):
 #     @classmethod
@@ -152,21 +184,58 @@ class Job(BaseModel):
 class JobQueue(BaseModel):
 
     queued_jobs: Dict[JobID, Job] = {}
-
     running_jobs: Dict[JobID, Job] = {}
+    completed_jobs: Dict[JobID, Job] = {}
 
-    completed_jobs: List[Job] = []
-    pruned_jobs: List[Job] = []
-    deleted_jobs: List[Job] = []
+    pruned_jobs: Dict[JobID, Job] = {}
+    # deleted_jobs: List[Job] = []
 
     current_group: int = 1
 
+    last_changed: datetime = datetime.now()
+
+    is_dirty: bool = False
+    flags: list = []
+
+    # def __post_init__(self):
+
+    #     self._last_save = datetime(year=1995)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._start_manager_thread()
+
+
+    @property
+    def queue_file(self):
+        return DEFAULT_CONFIG.queue_file
+
+    def on_queue_change(self):
+        self.last_changed = datetime.now()
+        self.is_dirty = True
+
     def get_job_group(self, group_id: int) -> List[Job]:
-        pass
-        # return [job for job in self.jobs if job.job_id.group == group_id]
+        # pass
+        return [
+            job for job in itertools.chain(self.running_jobs.values(), self.queued_jobs.values()) if
+            job.job_id.group == group_id
+        ]
+
+    def find_job(self, job_id):
+        """
+        Looks for a job in the queued and running jobs
+        """
+        if job_id in self.queued_jobs:
+            return self.queued_jobs[job_id]
+        elif job_id in self.running_jobs:
+            return self.running_jobs[job_id]
+        # elif job_id in self.completed_jobs:
+        #     return self.completed_jobs[job_id]
+        return None
 
     def submit(self, job_spec: JobSpec, job_id=None) -> Job:
-
+        """
+        Adds a new job to the queue
+        """
         if job_id is None:
             job_id = JobID(group=self.current_group)
             self.current_group += 1
@@ -175,36 +244,134 @@ class JobQueue(BaseModel):
         job.status = JobStatus.Queued
         job.submitted = datetime.now()
         self.queued_jobs[job.job_id] = job
+        self.on_queue_change()
         # print("Submitted: ", job,"\n")
 
         return job
 
     def next_job(self):
+        """
+        Gets the next runnable job
+        """
+        if not self.queued_jobs:
+            return None
 
-        for job in sorted(
-            self.queued_jobs, key=lambda j: j.job_spec.priority, reverse=True
-        ):
-            self.queued_jobs.remove(job)
-            self.running_jobs[job.job_id] = job
+        for job in sorted(self.queued_jobs.values()):
             return job
 
+    def on_job_started(self, job_id):
+        """
+        Call this when a job is about to start
+        """
+        job = self.queued_jobs.pop(job_id)
+        job.status = JobStatus.Running
+        job.started = datetime.now()
+        self.running_jobs[job.job_id] = job
+        self.on_queue_change()
+
     def on_job_finished(self, job_id):
+        """
+        Call this when a job is done
+        """
         job = self.running_jobs.pop(job_id)
-        self.completed_jobs.append(job)
+        job.status = JobStatus.Completed
+        job.completed = datetime.now()
+        self.completed_jobs[job.job_id] = job
+        self.on_queue_change()
+
+    def check_can_job_run(self, job_id: JobID):
+        """
+        Checks to see if a job is able to run.  Three conditions must be met:
+        1. The job must be in self.queued_jobs
+        2. No dependencies must be in self.queued_jobs
+        3. No depencencies must be in self.running_jobs
+        """
+        if job_id not in self.queued_jobs:
+            return False
+
+        job = self.queued_jobs[job_id]
+
+        waiting_on: List[JobID] = [
+            id_ for id_ in job.job_spec.depends if
+            ((id_ in self.running_jobs) or (id_ in self.queued_jobs))
+        ]
+
+        if len(waiting_on) > 0:
+
+            if DEBUG:
+                print(f'>w<{job.job_id} waiting on running jobs: {waiting_on}')
+
+            return False
+        else:
+            return True
+
 
     def prune(self):
+        """
+        Keeps the list of completed jobs to a defined size
+        """
+        completed_limit = DEFAULT_CONFIG.prune_job_limt
+        completed_jobs = len(self.completed_jobs)
+        if completed_jobs < completed_limit:
+            return
 
-        num_jobs = DEFAULT_CONFIG.prune_job_limt
-        pruned_jobs = []
-        if len(self.completed_jobs) > num_jobs:
-            pruned_jobs = self.completed_jobs[num_jobs:]
-            self.completed_jobs = self.completed_jobs[:num_jobs]
+        prune_count = completed_jobs - int(completed_limit/2)
 
-        now = datetime.now()
-        for job in self.completed_jobs[:]:
-            if now - job.completed > DEFAULT_CONFIG.prune_time_limit:
-                pruned_jobs.append(job)
-                self.completed_jobs.remove(job)
+        self.pruned_jobs = {}
+        for ij, job in enumerate(list(self.completed_jobs.values())):
+            if ij >= prune_count:
+                return
+            self.completed_jobs.pop(job.job_id)
+            self.pruned_jobs[job.job_id] = job
+
+        self.on_queue_change()
+
+    def _runloop(self):
+        """
+        This is the loop that manages getting job completetions, taking care of the sub-processes
+         and keeping the queue moving
+        """
+        import time
+        while True:
+            # print('in loop')
+            time.sleep(10)
+
+            self.prune()
+            self.save()
+
+            if 'abort' in self.flags:
+                self.flags.remove('abort')
+                return
+
+    def _start_manager_thread(self):
+        """
+        Starts the thread that manages the process pool
+
+        Returns
+        -------
+        t: threading.Thread
+            The management thread
+        """
+        import threading
+        t = threading.Thread(target=self._runloop)
+        t.start()
+        return t
+
+    def shutdown(self):
+        self.flags.append('abort')
+
+    def save(self):
+        import os
+        from yaml import dump
+        # now = datetime.now()
+
+        if self.is_dirty:
+
+            with open(DEFAULT_CONFIG.queue_file, 'w') as fid:
+                dump(self.dict(), fid)
+
+            self.is_dirty = False
+
 
     @property
     def all_jobs(self):
@@ -231,11 +398,12 @@ class Configuration(BaseSettings):
     last_job_id: JobID = JobID(group=0, index=1)
     log_file: str = join(expanduser("~"), "lqts.log")
     config_file: str = join(expanduser("~"), "lqts.config")
+    queue_file: str =  join(expanduser("~"), "lqts.queue.yaml")
     nworkers: int = max(cpu_count() - 2, 1)
     ssl_cert: str = None
 
     prune_time_limit: timedelta = timedelta(days=1)
-    prune_job_limt: int = 200
+    prune_job_limt: int = 1000
 
     @property
     def url(self):
@@ -246,4 +414,3 @@ class Configuration(BaseSettings):
 
 
 DEFAULT_CONFIG = Configuration()
-

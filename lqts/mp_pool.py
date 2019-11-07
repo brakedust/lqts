@@ -216,22 +216,24 @@ class DynamicProcessPool(cf.Executor):
 
         future = cf.Future()
 
-        job = None
-        for jid in self.server.queue.queued_jobs:
-            # j: Job = j
-            if self.server.check_can_job_run(jid):
-                job = self.server.queue.queued_jobs[jid]
-                # self.server.queue.running_jobs[jid] = job
-                # self.server.queue.queued_jobs = [jb for jb in self.server.queue.queued_jobs if jb.job_id != j.job_id]
-                # self.server.queue.running_jobs[job.job_id] = job
-                # job.status = JobStatus.Running
-                break
-            else:
-                pass
-                # print(f"Job cannot run: {j}")
-                # print(self.server.queue.running_jobs)
-                # print(self.server.queue.queued_jobs)
-        else:
+        # job = None
+        job = self.server.queue.next_job()
+        # for jid in self.server.queue.queued_jobs:
+        #     # j: Job = j
+        #     if self.server.check_can_job_run(jid):
+        #         job = self.server.queue.queued_jobs[jid]
+        #         # self.server.queue.running_jobs[jid] = job
+        #         # self.server.queue.queued_jobs = [jb for jb in self.server.queue.queued_jobs if jb.job_id != j.job_id]
+        #         # self.server.queue.running_jobs[job.job_id] = job
+        #         # job.status = JobStatus.Running
+        #         break
+        #     else:
+        #         pass
+        #         # print(f"Job cannot run: {j}")
+        #         # print(self.server.queue.running_jobs)
+        #         # print(self.server.queue.queued_jobs)
+        # else:
+        if job is None:
             return False, None
 
         future = cf.Future()
@@ -374,7 +376,9 @@ class DynamicProcessPool(cf.Executor):
         return t
 
     def _start_sync(self):
-
+        """
+        Starts the management function synchronously.  Use only for debugging
+        """
         self._runloop()
 
     def __enter__(self):

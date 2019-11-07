@@ -36,7 +36,9 @@ def test_priority():
     job2 = q.submit(js2)
 
     exec_job_1 = q.next_job()
+    q.on_job_started(exec_job_1.job_id)
     exec_job_2 = q.next_job()
+    q.on_job_started(exec_job_2.job_id)
 
     assert exec_job_1.job_id == JobID(group=2, index=0)
     assert exec_job_2.job_id == JobID(group=1, index=0)
@@ -56,16 +58,15 @@ def test_prune():
     assert len(q.running_jobs) == 0
     assert len(q.completed_jobs) == 0
 
-    jobs = [q.next_job() for i in range(15)]
+    for i in range(15):
+        q.on_job_started(q.next_job().job_id)
 
     assert len(q.queued_jobs) == 0
     assert len(q.running_jobs) == 15
     assert len(q.completed_jobs) == 0
 
-    for j in jobs:
-        j.completed = datetime.now()
-        j.status = JobStatus.Completed
-        q.on_job_finished(j.job_id)
+    for job_id, job in list(q.running_jobs.items()):
+        q.on_job_finished(job_id)
 
     assert len(q.queued_jobs) == 0
     assert len(q.running_jobs) == 0
@@ -75,4 +76,29 @@ def test_prune():
 
     assert len(q.queued_jobs) == 0
     assert len(q.running_jobs) == 0
-    assert len(q.completed_jobs) == 10
+    assert len(q.completed_jobs) == 5
+
+
+def test_job_sorting():
+
+
+    jobs = [
+        Job(job_spec=JobSpec(command='', working_dir='', priority=5), job_id=JobID(group=1,index=0)),
+        Job(job_spec=JobSpec(command='', working_dir='', priority=5), job_id=JobID(group=2,index=0)),
+        Job(job_spec=JobSpec(command='', working_dir='', priority=4), job_id=JobID(group=3,index=0)),
+        Job(job_spec=JobSpec(command='', working_dir='', priority=6), job_id=JobID(group=4,index=0)),
+        Job(job_spec=JobSpec(command='', working_dir='', priority=5), job_id=JobID(group=5,index=1)),
+        Job(job_spec=JobSpec(command='', working_dir='', priority=5), job_id=JobID(group=5,index=0)),
+    ]
+
+    jobs2 = list(sorted(jobs))
+
+    for j in jobs2:
+        print(j)
+
+    assert jobs2[0].job_id.group == 4
+    assert jobs2[-1].job_id.group == 3
+
+# if __name__ == "__main__":
+    # test_priority()
+    # test_prune()
