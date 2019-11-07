@@ -1,13 +1,18 @@
-import pytest
-
+import os
 from datetime import datetime
 from itertools import cycle
 
-from lqts.schema import JobSpec, Job, JobID, JobQueue, JobStatus, DEFAULT_CONFIG
+import pytest
 
+from lqts.schema import (DEFAULT_CONFIG, Job, JobID, JobQueue, JobSpec,
+                         JobStatus)
+from tests.data import data_path
+
+hello = os.path.join(data_path, 'echo_it.bat') + " hello"
+goodbye = os.path.join(data_path, 'echo_it.bat') + " goodbye"
 
 def get_job_spec():
-    js = JobSpec(command="echo hello", working_dir="/tmp", priority=10)
+    js = JobSpec(command=hello, working_dir=".", priority=10)
     return js
 
 
@@ -29,8 +34,8 @@ def test_priority():
 
     q = JobQueue()
 
-    js1 = JobSpec(command="echo hello", working_dir="/tmp", priority=10)
-    js2 = JobSpec(command="echo goodbye", working_dir="/tmp", priority=15)
+    js1 = JobSpec(command=hello, working_dir=".", priority=10)
+    js2 = JobSpec(command=goodbye, working_dir=".", priority=15)
 
     job1 = q.submit(js1)
     job2 = q.submit(js2)
@@ -51,7 +56,7 @@ def test_prune():
     q = JobQueue()
 
     for i in range(15):
-        js1 = JobSpec(command="echo hello", working_dir="/tmp", priority=10)
+        js1 = JobSpec(command=hello, working_dir=".", priority=10)
         job1 = q.submit(js1)
 
     assert len(q.queued_jobs) == 15
@@ -102,3 +107,46 @@ def test_job_sorting():
 # if __name__ == "__main__":
     # test_priority()
     # test_prune()
+
+
+def test_save_and_read_queue():
+
+    DEFAULT_CONFIG.prune_job_limt = 10
+
+    q = JobQueue(start_manager_thread=False)
+
+    for i in range(15):
+        js1 = JobSpec(command=hello, working_dir=".", priority=10)
+        job1 = q.submit(js1)
+
+    assert len(q.queued_jobs) == 15
+    assert len(q.running_jobs) == 0
+    assert len(q.completed_jobs) == 0
+
+    for i in range(10):
+        q.on_job_started(q.next_job().job_id)
+
+    assert len(q.queued_jobs) == 5
+    assert len(q.running_jobs) == 10
+    assert len(q.completed_jobs) == 0
+
+    i = 0
+    for job_id, job in list(q.running_jobs.items()):
+        q.on_job_finished(job_id)
+        i += 1
+        if i == 5:
+            break
+
+    assert len(q.queued_jobs) == 5
+    assert len(q.running_jobs) == 5
+    assert len(q.completed_jobs) == 5
+
+    q.save()
+
+    q2 = JobQueue()
+    q2.load()
+
+    a,b = len(q.queued_jobs) + len(q.running_jobs), len(q2.queued_jobs)
+    assert a == b
+    # assert len(q.running_jobs) == len(q2.running_jobs)
+    assert len(q.completed_jobs) == len(q2.completed_jobs)

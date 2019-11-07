@@ -30,6 +30,12 @@ class Application(FastAPI):
         #     self.queue = JobQueue(**data)
         # else:
         self.queue = JobQueue()
+        if os.path.exists(DEFAULT_CONFIG.queue_file):
+            self.queue.load()
+
+        self.queue._start_manager_thread()
+
+
 
         self.dependencies = defaultdict(list)
 

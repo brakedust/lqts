@@ -153,7 +153,7 @@ class Job(BaseModel):
             self.job_spec.command,
             self.walltime,
             self.job_spec.working_dir,
-            ",".join(str(d) for d in self.job_spec.depends)
+            ",".join(str(d) for d in self.job_spec.depends) if self.job_spec.depends else ""
         ]
     def _sort_params(self):
 
@@ -200,9 +200,10 @@ class JobQueue(BaseModel):
     # def __post_init__(self):
 
     #     self._last_save = datetime(year=1995)
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, start_manager_thread=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self._start_manager_thread()
+        if start_manager_thread:
+            self._start_manager_thread()
 
 
     @property
@@ -337,7 +338,8 @@ class JobQueue(BaseModel):
             time.sleep(10)
 
             self.prune()
-            self.save()
+            if self.is_dirty:
+                self.save()
 
             if 'abort' in self.flags:
                 self.flags.remove('abort')
@@ -361,14 +363,45 @@ class JobQueue(BaseModel):
         self.flags.append('abort')
 
     def save(self):
-        import os
-        from yaml import dump
-        # now = datetime.now()
 
-        if self.is_dirty:
+        with open(DEFAULT_CONFIG.queue_file, 'w') as fid:
 
-            with open(DEFAULT_CONFIG.queue_file, 'w') as fid:
-                dump(self.dict(), fid)
+            fid.write('[running_jobs]\n')
+            for job_id, job in self.running_jobs.items():
+                fid.write(f"{job_id}: {job.json()}\n")
+
+            fid.write('[queued_jobs]\n')
+            for job_id, job in self.queued_jobs.items():
+                fid.write(f"{job_id}: {job.json()}\n")
+
+            fid.write('[completed_jobs]\n')
+            for job_id, job in self.completed_jobs.items():
+                fid.write(f"{job_id}: {job.json()}\n")
+
+        self.is_dirty = False
+
+    def load(self):
+
+        with open(DEFAULT_CONFIG.queue_file, 'r') as fid:
+
+            reading_queue = self.running_jobs
+            was_running = False
+            for line in fid:
+                if '[running_jobs]' in line:
+                    reading_queue = self.queued_jobs
+                    was_running = True
+                elif '[queued_jobs]' in line:
+                    reading_queue = self.queued_jobs
+                    was_running = False
+                elif '[completed_jobs]' in line:
+                    reading_queue = self.completed_jobs
+                    was_running = False
+                else:
+                    *_, str_job = line.partition(':')
+                    job = Job.parse_raw(str_job)
+                    if was_running:
+                        job.status = JobStatus.Queued
+                    reading_queue[job.job_id] = job
 
             self.is_dirty = False
 
@@ -376,13 +409,13 @@ class JobQueue(BaseModel):
     @property
     def all_jobs(self):
 
-        return (
-            list(self.running_jobs.values()) +
-            list(self.queued_jobs.values()) +
-            self.completed_jobs +
-            self.deleted_jobs +
-            self.pruned_jobs
-        )
+        return list(itertools.chain(
+            self.running_jobs.values(),
+            self.queued_jobs.values(),
+            self.completed_jobs.values()
+        ))
+
+
 
 class WorkItem(BaseModel):
 
@@ -398,7 +431,7 @@ class Configuration(BaseSettings):
     last_job_id: JobID = JobID(group=0, index=1)
     log_file: str = join(expanduser("~"), "lqts.log")
     config_file: str = join(expanduser("~"), "lqts.config")
-    queue_file: str =  join(expanduser("~"), "lqts.queue.yaml")
+    queue_file: str =  join(expanduser("~"), "lqts.queue.txt")
     nworkers: int = max(cpu_count() - 2, 1)
     ssl_cert: str = None
 
