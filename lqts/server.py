@@ -202,7 +202,7 @@ class Application(FastAPI):
             self.log.info(
                 f"+++ Assimilated job {job.job_id} at {job.submitted.isoformat()} - {job.job_spec.command}"
             )
-            self.log.info(f"Job dependencies for {job.job_id}: {[job.job_spec.depends]}")
+            # self.log.info(f"Job dependencies for {job.job_id}: {[job.job_spec.depends]}")
 
             # self.pool.submit(partial(run_command, job), job)
 
@@ -230,7 +230,7 @@ def root():
 
 @app.get("/qstat")
 def get_queue(options: dict):
-    print(options)
+    # print(options)
     queue_status = []
 
     # print("qstat 1")
@@ -245,7 +245,7 @@ def get_queue(options: dict):
         queue_status.append(job.json())
 
     if options.get('completed', False):
-        queue_status.extend([j.json() for j in app.queue.completed_jobs])
+        queue_status.extend([job.json() for jid, job in app.queue.completed_jobs.items()])
     # print("qstat 3")
 
     return queue_status  #[j.json() for j in app.queue.running_jobs.values()] + [j.json() for j in app.queue.queued_jobs.value()]
@@ -253,7 +253,7 @@ def get_queue(options: dict):
 
 @app.post("/qsub")
 def qsub(job_specs: List[JobSpec]):
-    print(f"Submitted job specs {job_specs}")
+    # print(f"Submitted job specs {job_specs}")
     return app.submit_jobs(job_specs)
 
 

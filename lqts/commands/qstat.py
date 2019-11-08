@@ -25,26 +25,28 @@ def qstat(debug=False, completed=False):
     )  # , json=message)
 
     if debug:
-        print(response)
+        print(response.text)
     else:
         jobs = [Job(**ujson.loads(item)) for item in response.json()]
         # print(jobs)
         # td = dt.tablize(
         #                 data,
         #                 include=['job_id', 'command', 'status', 'started', 'walltime'])
-        rows = [["ID", "St", "Command", "Walltime", "WorkingDir", "Dependencies"]]
+        rows = [["ID", "St", "Pr", "Command", "Walltime", "WorkingDir", "Dep"]]
         for job in jobs:
             job: Job = job
             rows.append(
                 [
                     job.job_id,
                     job.status.value,
+                    job.job_spec.priority,
                     job.job_spec.command if job.job_spec is not None else "",
                     job.walltime,
                     job.job_spec.working_dir,
-                    ",".join(str(d) for d in job.job_spec.depends),
+                    ",".join(str(d) for d in job.job_spec.depends) if job.job_spec.depends else '-',
                 ]
             )
 
-        t = dt.make_table(rows, colsep="|", use_rowsep=False, maxwidth=80)
+
+        t = dt.make_table(rows, colsep="|", use_rowsep=False, maxwidth=90)
         print(t)

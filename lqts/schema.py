@@ -334,16 +334,16 @@ class JobQueue(BaseModel):
         """
         import time
         while True:
-            # print('in loop')
-            time.sleep(10)
 
             self.prune()
             if self.is_dirty:
                 self.save()
 
-            if 'abort' in self.flags:
-                self.flags.remove('abort')
-                return
+            for i in range(15):
+                time.sleep(2)
+                if 'abort' in self.flags:
+                    self.flags.remove('abort')
+                    return
 
     def _start_manager_thread(self):
         """
@@ -382,6 +382,7 @@ class JobQueue(BaseModel):
 
     def load(self):
 
+        max_job_group = 0
         with open(DEFAULT_CONFIG.queue_file, 'r') as fid:
 
             reading_queue = self.running_jobs
@@ -401,9 +402,12 @@ class JobQueue(BaseModel):
                     job = Job.parse_raw(str_job)
                     if was_running:
                         job.status = JobStatus.Queued
+                    max_job_group = max(job.job_id.group, max_job_group)
+
                     reading_queue[job.job_id] = job
 
             self.is_dirty = False
+            self.current_group = max_job_group + 1
 
 
     @property

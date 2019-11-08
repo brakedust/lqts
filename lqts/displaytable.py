@@ -349,9 +349,12 @@ def make_table(
 
         # compute column widths
         colwidths = []
+
         for icol in range(0, ncol):
             colwidths.append(0)
             for row in table:
+                if row == rowsep:
+                    continue
                 for ir in row[icol].split("\n"):
                     colwidths[-1] = max(colwidths[-1], len(ir))
             # colwidths[-1] = max([len(row[icol].split('\n')]) for row in table])
