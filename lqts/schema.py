@@ -77,6 +77,7 @@ class JobStatus(enum.Enum):
     Running = "R"
     Completed = "C"
     Deleted = "D"
+    Error = "E"
 
 
 class JobSpec(BaseModel):
@@ -226,12 +227,12 @@ class JobQueue(BaseModel):
         Looks for a job in the queued and running jobs
         """
         if job_id in self.queued_jobs:
-            return self.queued_jobs[job_id]
+            return self.queued_jobs[job_id], self.queued_jobs
         elif job_id in self.running_jobs:
-            return self.running_jobs[job_id]
+            return self.running_jobs[job_id], self.running_jobs
         # elif job_id in self.completed_jobs:
         #     return self.completed_jobs[job_id]
-        return None
+        return None, None
 
     def submit(self, job_spec: JobSpec, job_id=None) -> Job:
         """
@@ -270,13 +271,14 @@ class JobQueue(BaseModel):
         self.running_jobs[job.job_id] = job
         self.on_queue_change()
 
-    def on_job_finished(self, job_id):
+    def on_job_finished(self, completed_job: Job):
         """
         Call this when a job is done
         """
-        job = self.running_jobs.pop(job_id)
-        job.status = JobStatus.Completed
-        job.completed = datetime.now()
+        job = self.running_jobs.pop(completed_job.job_id)
+        job.status = completed_job.status
+        job.completed = completed_job.completed
+        # job.completed = datetime.now()
         self.completed_jobs[job.job_id] = job
         self.on_queue_change()
 

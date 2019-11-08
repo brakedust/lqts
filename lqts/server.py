@@ -132,7 +132,7 @@ class Application(FastAPI):
         # job.status = JobStatus.Completed
         # job.completed = datetime.now()
         # self.queue.completed_jobs.append(job)
-        self.queue.on_job_finished(job.job_id)
+        self.queue.on_job_finished(job)
         self.log.info(f"--- Completed   job {job.job_id} at {job.completed.isoformat()}")
         # print("# Running jobs = ", len(self.queue.running_jobs))
 
@@ -331,22 +331,22 @@ def qdel(job_ids: List[JobID]):
         # job_id = JobID.parse_obj(jid)
         # job = app.queue.find_job(job_id)
 
+        job, queue = app.queue.find_job(job_id)
+
+        if job is None:
+            continue
+
         should_delete = False
-        if job_id in app.queue.running_jobs:
+        if queue == app.queue.running_jobs:
             app.pool.kill_job(job_id)
-            should_delete = True
 
-        elif job in app.queue.queued_jobs:
-            should_delete = True
+        job.status = JobStatus.Deleted
+        job.completed = datetime.now()
+        queue.pop(job_id)
+        app.queue.completed_jobs[job_id] = job
+        deleted_jobs.append(job_id)
 
-        if should_delete:
-            job.status = JobStatus.Deleted
-            job.completed = datetime.now()
-            app.queue.completed_jobs.append(job)
-            deleted_jobs.append(job_id)
-
-    dead_jobs = [str(jid) for jid in deleted_jobs]
-    return {"Deleted jobs": dead_jobs}
+    return {"Deleted jobs": deleted_jobs}
 
 
 @app.get("/qstatus")

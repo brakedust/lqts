@@ -90,26 +90,30 @@ Started: {}
         command = command.strip()
 
     # print(command)
-    p = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
-    )
-
-    line = get_output(p)
-    fid.write(line)
-    while line:
+    try:
+        p = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
+        )
         line = get_output(p)
         fid.write(line)
-
-    serr = get_output(p, stderr=True)
-    sys.stderr.write(serr)
-    fid.write(
-        "\n-----------------------------------------------\nSTDERR\n-----------------------------------------------\n"
-    )
-    fid.write(serr)
+        while line:
+            line = get_output(p)
+            fid.write(line)
+        serr = get_output(p, stderr=True)
+        sys.stderr.write(serr)
+        fid.write(
+            "\n-----------------------------------------------\nSTDERR\n-----------------------------------------------\n"
+        )
+        fid.write(serr)
+        job.status = JobStatus.Completed
+    except FileNotFoundError:
+        fid.write(f"\nERROR: Command not found.  Ensure the command is an executable file.\n")
+        fid.write(f"\Make sure you give the full path to the file or that it is on your system path.\n\n")
+        job.status = JobStatus.Error
 
     end = datetime.now()
-    time.sleep(0.025)
-    job.status = JobStatus.Completed
+    time.sleep(0.001)
+
     job.completed = end
     # job.walltime = str(end - start)
 
@@ -131,14 +135,14 @@ Elapsed: {}
     return job
 
 
-def job_done(server, future):
-    """
-    Called when a job finishes.  This callback is added to each Future object
-    in submit_job_handler.
-    """
-    job_done = future.result()
+# def job_done(server, future):
+#     """
+#     Called when a job finishes.  This callback is added to each Future object
+#     in submit_job_handler.
+#     """
+#     job_done = future.result()
 
-    for job, fut in server.jobs:
-        if job["job_id"] == job_done["job_id"]:
-            job.update(job_done)
-            break
+#     for job, fut in server.jobs:
+#         if job["job_id"] == job_done["job_id"]:
+#             job.update(job_done)
+#             break

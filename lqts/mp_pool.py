@@ -197,6 +197,7 @@ class DynamicProcessPool(cf.Executor):
             # see if any results are available
 
             job = self.q_output.get(timeout=timeout)
+            print(job)
             self.log.info("Got result {} = {}".format(job.job_id, job))
             self.server.job_done_handler(job)
 
