@@ -1,15 +1,20 @@
-import enum
-from datetime import datetime, timedelta
-import itertools
-from os.path import join, expanduser
-from multiprocessing import cpu_count
 import concurrent.futures as cf
-from pydantic import BaseModel, BaseSettings
-from typing import List, Deque, Union, Dict, Any
+import enum
+import itertools
+from datetime import datetime, timedelta
+from multiprocessing import cpu_count
+from os.path import expanduser, join
 from queue import PriorityQueue
+from typing import Any, Deque, Dict, List, Union
 from uuid import uuid4
+import logging
+
+from pydantic import BaseModel, BaseSettings
+from pydantic.dataclasses import dataclass
 
 DEBUG = False
+
+LOGGER = logging.getLogger("uvicorn")
 
 
 class JobID(BaseModel):
@@ -39,6 +44,7 @@ class JobID(BaseModel):
             job_id = JobID()
             if "." not in value:
                 job_id.group = int(value)
+                job_id.index = None
             else:
                 g, i = value.split(".")
                 job_id.group = int(g)
@@ -53,12 +59,17 @@ class JobID(BaseModel):
             job_id.index = 0
             return job_id
         else:
-            return super().parse_obj(value)
+            job_id = JobID()
+            job_id.group = int(value["group"])
+            job_id.index = int(value["index"])
+            return job_id
+
+            # return super().parse_obj(value)
 
     # def dict(self, *args, **kwargs):
     #     return self.__str__()
 
-    def __lt__(self, other: 'JobID'):
+    def __lt__(self, other: "JobID"):
 
         if self.group == other.group:
             return self.index < other.index
@@ -89,17 +100,17 @@ class JobSpec(BaseModel):
     ncores: int = 1
     depends: List[JobID] = None
 
-    def __lt__(self, other: 'JobSpec'):
+    def __lt__(self, other: "JobSpec"):
         return self.priority > other.priority
 
-    def __eq__(self, other: 'JobSpec'):
+    def __eq__(self, other: "JobSpec"):
         return self.priority == other.priority
 
 
 class Job(BaseModel):
 
     job_id: JobID = JobID(group=1, index=0)
-    status: JobStatus = JobStatus.Initialized
+    status: JobStatus = JobStatus.Queued
 
     submitted: datetime = None
     started: datetime = None
@@ -108,13 +119,19 @@ class Job(BaseModel):
     # walltime: timedelta = None
     job_spec: JobSpec = None
 
-    # completed_depends: List[JobID] = []
+    # def __init__(self, *args, **kwargs):
+    #     print("kwargs = ", kwargs)
+    #     super().__init__(*args, **kwargs)
 
-    def __gt__(self, other: "Job"):
-        return self.job_spec.priority > other.job_spec.priority
+    # def initialize(self)
+    #     self.submitted = datetime.now()
+    #     self.status = JobStatus.Queued
 
-    def __eq__(self, other: "Job"):
-        return self.job_spec.priority == other.job_spec.priority
+    # def __gt__(self, other: "Job"):
+    #     return self.job_spec.priority > other.job_spec.priority
+
+    # def __eq__(self, other: "Job"):
+    #     return self.job_spec.priority == other.job_spec.priority
 
     @property
     def can_run(self) -> bool:
@@ -154,8 +171,11 @@ class Job(BaseModel):
             self.job_spec.command,
             self.walltime,
             self.job_spec.working_dir,
-            ",".join(str(d) for d in self.job_spec.depends) if self.job_spec.depends else ""
+            ",".join(str(d) for d in self.job_spec.depends)
+            if self.job_spec.depends
+            else "",
         ]
+
     def _sort_params(self):
 
         return (self.job_spec, self.job_id)
@@ -168,30 +188,36 @@ class Job(BaseModel):
 
         return self._sort_params() == other._sort_params()
 
-# class PriorityQueueThing(PriorityQueue):
-#     @classmethod
-#     def __get_validators__(cls):
-#         yield cls.validate
 
-#     @classmethod
-#     def validate(cls, v):
-#         if not isinstance(v, PriorityQueue):
-#             raise ValueError(
-#                 f"PriorityQueuething: PriorityQueue expected not {type(v)}"
-#             )
-#         return v
+class JobGroup(BaseModel):
+
+    group_number: int = 0
+    jobs: Dict[JobID, Job] = {}
+
+    def next_job_index(self):
+        "Return the job index for the next job to add to the job group"
+        return len(self.job_ids)
+
+    def next_job_id(self):
+        return JobID(group=self.group_number, index=len(self.jobs))
 
 
 class JobQueue(BaseModel):
+
+    name: str = "default"
+    queue_file: str = ""
+    completed_limit: int = 500
 
     queued_jobs: Dict[JobID, Job] = {}
     running_jobs: Dict[JobID, Job] = {}
     completed_jobs: Dict[JobID, Job] = {}
 
     pruned_jobs: Dict[JobID, Job] = {}
+
+    job_groups: Dict[int, JobGroup] = {}
     # deleted_jobs: List[Job] = []
 
-    current_group: int = 1
+    next_group_number: int = 1
 
     last_changed: datetime = datetime.now()
 
@@ -201,28 +227,34 @@ class JobQueue(BaseModel):
     # def __post_init__(self):
 
     #     self._last_save = datetime(year=1995)
-    def __init__(self, *args, start_manager_thread=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        if start_manager_thread:
-            self._start_manager_thread()
+    # def __init__(self, *args, start_manager_thread=False, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     if start_manager_thread:
+    #         self._start_manager_thread()
 
+    # def __post_init__(self):
+    #     if start_manager_thread:
+    #         self._start_manager_thread()
+    #     LOGGER =
 
-    @property
-    def queue_file(self):
-        return DEFAULT_CONFIG.queue_file
-
-    def on_queue_change(self):
+    def on_queue_change(self, *args, **kwargs):
+        """
+        Calls this when the queue has changed
+        """
         self.last_changed = datetime.now()
         self.is_dirty = True
 
     def get_job_group(self, group_id: int) -> List[Job]:
         # pass
         return [
-            job for job in itertools.chain(self.running_jobs.values(), self.queued_jobs.values()) if
-            job.job_id.group == group_id
+            job
+            for job in itertools.chain(
+                self.running_jobs.values(), self.queued_jobs.values()
+            )
+            if job.job_id.group == group_id
         ]
 
-    def find_job(self, job_id):
+    def find_job(self, job_id: JobID) -> (Job, "JobQueue"):
         """
         Looks for a job in the queued and running jobs
         """
@@ -234,24 +266,44 @@ class JobQueue(BaseModel):
         #     return self.completed_jobs[job_id]
         return None, None
 
-    def submit(self, job_spec: JobSpec, job_id=None) -> Job:
+    def submit(self, job_specs: List[JobSpec]) -> List[JobID]:
+        global LOGGER
+        # job_ids = []
+        group = JobGroup(group_number=self.next_group_number)
+        self.job_groups[group.group_number] = group
+        self.next_group_number += 1
+        for job_spec in job_specs:
+            job_id = group.next_job_id()  # JobID(group=group, index=i)
+            # print(job_id, job_spec)
+            job = Job(job_id=job_id, job_spec=job_spec)
+            group.jobs[job_id] = job
+            job.submitted = datetime.now()
+            self.queued_jobs[job_id] = job
+
+        if len(job_specs) == 1:
+            LOGGER.info(
+                f"+++ Assimilated job {job.job_id} at {job.submitted.isoformat()} - {job.job_spec.command}"
+            )
+        else:
+            LOGGER.info(
+                f"+++ Assimilated {len(group.jobs)} into job group {group.group_number} at {datetime.now().isoformat()}"
+            )
+
+        self.on_queue_change
+        return list(group.jobs.keys())
+
+    def running_count(self) -> int:
         """
-        Adds a new job to the queue
+        Gets the current nuber of running jobs sum (ncores_each_job * njobs).
         """
-        if job_id is None:
-            job_id = JobID(group=self.current_group)
-            self.current_group += 1
 
-        job = Job(job_id=job_id, job_spec=job_spec)
-        job.status = JobStatus.Queued
-        job.submitted = datetime.now()
-        self.queued_jobs[job.job_id] = job
-        self.on_queue_change()
-        # print("Submitted: ", job,"\n")
+        n = 0
+        for job in self.running_jobs.values():
+            n += job.job_spec.ncores
 
-        return job
+        return n
 
-    def next_job(self):
+    def next_job(self) -> Job:
         """
         Gets the next runnable job
         """
@@ -275,14 +327,17 @@ class JobQueue(BaseModel):
         """
         Call this when a job is done
         """
-        job = self.running_jobs.pop(completed_job.job_id)
-        job.status = completed_job.status
-        job.completed = completed_job.completed
-        # job.completed = datetime.now()
-        self.completed_jobs[job.job_id] = job
+        try:
+            job = self.running_jobs.pop(completed_job.job_id)
+            job.status = completed_job.status
+            job.completed = completed_job.completed
+            self.completed_jobs[job.job_id] = job
+        except KeyError:
+            pass
+
         self.on_queue_change()
 
-    def check_can_job_run(self, job_id: JobID):
+    def check_can_job_run(self, job_id: JobID) -> bool:
         """
         Checks to see if a job is able to run.  Three conditions must be met:
         1. The job must be in self.queued_jobs
@@ -295,30 +350,30 @@ class JobQueue(BaseModel):
         job = self.queued_jobs[job_id]
 
         waiting_on: List[JobID] = [
-            id_ for id_ in job.job_spec.depends if
-            ((id_ in self.running_jobs) or (id_ in self.queued_jobs))
+            id_
+            for id_ in job.job_spec.depends
+            if ((id_ in self.running_jobs) or (id_ in self.queued_jobs))
         ]
 
         if len(waiting_on) > 0:
 
             if DEBUG:
-                print(f'>w<{job.job_id} waiting on running jobs: {waiting_on}')
+                print(f">w<{job.job_id} waiting on running jobs: {waiting_on}")
 
             return False
         else:
             return True
 
-
     def prune(self):
         """
         Keeps the list of completed jobs to a defined size
         """
-        completed_limit = DEFAULT_CONFIG.prune_job_limt
+        # completed_limit = DEFAULT_CONFIG.prune_job_limt
         completed_jobs = len(self.completed_jobs)
-        if completed_jobs < completed_limit:
+        if completed_jobs < self.completed_limit:
             return
 
-        prune_count = completed_jobs - int(completed_limit/2)
+        prune_count = completed_jobs - int(self.completed_limit / 2)
 
         self.pruned_jobs = {}
         for ij, job in enumerate(list(self.completed_jobs.values())):
@@ -335,16 +390,17 @@ class JobQueue(BaseModel):
          and keeping the queue moving
         """
         import time
+
         while True:
 
             self.prune()
             if self.is_dirty:
                 self.save()
 
-            for i in range(15):
+            for __ in range(15):
                 time.sleep(2)
-                if 'abort' in self.flags:
-                    self.flags.remove('abort')
+                if "abort" in self.flags:
+                    self.flags.remove("abort")
                     return
 
     def _start_manager_thread(self):
@@ -357,26 +413,27 @@ class JobQueue(BaseModel):
             The management thread
         """
         import threading
+
         t = threading.Thread(target=self._runloop)
         t.start()
         return t
 
     def shutdown(self):
-        self.flags.append('abort')
+        self.flags.append("abort")
 
     def save(self):
 
-        with open(DEFAULT_CONFIG.queue_file, 'w') as fid:
+        with open(self.queue_file, "w") as fid:
 
-            fid.write('[running_jobs]\n')
+            fid.write("[running_jobs]\n")
             for job_id, job in self.running_jobs.items():
                 fid.write(f"{job_id}: {job.json()}\n")
 
-            fid.write('[queued_jobs]\n')
+            fid.write("[queued_jobs]\n")
             for job_id, job in self.queued_jobs.items():
                 fid.write(f"{job_id}: {job.json()}\n")
 
-            fid.write('[completed_jobs]\n')
+            fid.write("[completed_jobs]\n")
             for job_id, job in self.completed_jobs.items():
                 fid.write(f"{job_id}: {job.json()}\n")
 
@@ -385,22 +442,22 @@ class JobQueue(BaseModel):
     def load(self):
 
         max_job_group = 0
-        with open(DEFAULT_CONFIG.queue_file, 'r') as fid:
+        with open(self.queue_file, "r") as fid:
 
             reading_queue = self.running_jobs
             was_running = False
             for line in fid:
-                if '[running_jobs]' in line:
+                if "[running_jobs]" in line:
                     reading_queue = self.queued_jobs
                     was_running = True
-                elif '[queued_jobs]' in line:
+                elif "[queued_jobs]" in line:
                     reading_queue = self.queued_jobs
                     was_running = False
-                elif '[completed_jobs]' in line:
+                elif "[completed_jobs]" in line:
                     reading_queue = self.completed_jobs
                     was_running = False
                 else:
-                    *_, str_job = line.partition(':')
+                    *_, str_job = line.partition(":")
                     job = Job.parse_raw(str_job)
                     if was_running:
                         job.status = JobStatus.Queued
@@ -409,18 +466,49 @@ class JobQueue(BaseModel):
                     reading_queue[job.job_id] = job
 
             self.is_dirty = False
-            self.current_group = max_job_group + 1
-
+            self.next_group_number = max_job_group + 1
 
     @property
     def all_jobs(self):
 
-        return list(itertools.chain(
-            self.running_jobs.values(),
-            self.queued_jobs.values(),
-            self.completed_jobs.values()
-        ))
+        return list(
+            itertools.chain(
+                self.running_jobs.values(),
+                self.queued_jobs.values(),
+                self.completed_jobs.values(),
+            )
+        )
 
+    def pop_job(self, job: Job, queue: Dict[JobID, Job]) -> Job:
+
+        if job is None:
+            return None
+        else:
+            queue.pop(job.job_id)
+            job.status = JobStatus.Deleted
+            job.completed = datetime.now()
+            self.completed_jobs[job.job_id] = job
+            return job
+
+    def qdel(self, job_ids: List[JobID]) -> List[JobID]:
+        """
+        Delete on or more jobs
+        """
+
+        deleted_job_ids = []
+
+        for job_id in list(job_ids):
+            if job_id.index is None:
+                for job_id2 in self.job_groups[job_id.group]:
+                    job = self.pop_job(*self.find_job(job_id2))
+                    deleted_job_ids.append(job.job_id)
+            else:
+                job = self.pop_job(*self.find_job(job_id))
+                deleted_job_ids.append(job.job_id)
+
+        self.on_queue_change()
+
+        return deleted_job_ids
 
 
 class WorkItem(BaseModel):
@@ -429,27 +517,3 @@ class WorkItem(BaseModel):
     future: Any
     fn: Any
 
-
-class Configuration(BaseSettings):
-
-    ip_address: str = "127.0.0.1"
-    port: int = 9200
-    last_job_id: JobID = JobID(group=0, index=1)
-    log_file: str = join(expanduser("~"), "lqts.log")
-    config_file: str = join(expanduser("~"), "lqts.config")
-    queue_file: str =  join(expanduser("~"), "lqts.queue.txt")
-    nworkers: int = max(cpu_count() - 2, 1)
-    ssl_cert: str = None
-
-    prune_time_limit: timedelta = timedelta(days=1)
-    prune_job_limt: int = 1000
-
-    @property
-    def url(self):
-        if self.ssl_cert:
-            return f"https://{self.ip_address}:{self.port}"
-        else:
-            return f"http://{self.ip_address}:{self.port}"
-
-
-DEFAULT_CONFIG = Configuration()

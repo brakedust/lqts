@@ -1,3 +1,0 @@
-
-class SQSShutdownException(Exception):
-    pass

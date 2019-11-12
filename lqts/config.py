@@ -1,54 +1,39 @@
-from os.path import join, expanduser
+import concurrent.futures as cf
+import enum
+import itertools
+from datetime import datetime, timedelta
 from multiprocessing import cpu_count
+from os.path import expanduser, join
+from queue import PriorityQueue
+from typing import Any, Deque, Dict, List, Union
+from uuid import uuid4
 
-import yaml
+from pydantic import BaseModel, BaseSettings
 
 
-class Configuration:
-    def __init__(
-        self,
-        ip_address="127.0.0.1",
-        port=9126,
-        last_job_id=0,
-        log_file=join(expanduser("~"), "sqs.log"),
-        config_file=join(expanduser("~"), "sqs.config"),
-        nworkers: int = max(cpu_count() - 2, 1),
-    ):
+class Configuration(BaseSettings):
 
-        self.ip_address = "127.0.0.1"
-        self.port = port
-        self.last_job_id = last_job_id
-        self.log_file = log_file
-        self.config_file = config_file
-        self.nworkers = nworkers
+    ip_address: str = "127.0.0.1"
+    port: int = 9200
+    log_file: str = join(expanduser("~"), "lqts.log")
+    config_file: str = join(expanduser("~"), "lqts.config")
+    queue_file: str = join(expanduser("~"), "lqts.queue.txt")
+    nworkers: int = max(cpu_count() - 2, 1)
+    ssl_cert: str = None
 
-    def load_defaults(self):
+    prune_time_limit: timedelta = timedelta(days=1)
+    completed_limit: int = 1000
 
-        self.ip_address = "127.0.0.1"
-        self.port = 9126
-        self.last_job_id = "0"
-        self.log_file = join(expanduser("~"), "sqs.log")
-        self.config_file = join(expanduser("~"), "sqs.config")
-        self.nworkers = max(cpu_count() - 2, 1)
+    @property
+    def url(self):
+        if self.ssl_cert:
+            return f"https://{self.ip_address}:{self.port}"
+        else:
+            return f"http://{self.ip_address}:{self.port}"
 
-    def save(self):
+    class Config:
+        env_prefix = "lqts_"  # defaults to no prefix, i.e. ""
+        case_sensitive = True
 
-        d = {
-            "ip_address": self.ip_address,
-            "port": self.port,
-            "log_file": self.log_file,
-            "last_job_id": self.last_job_id,
-            "nworkers": self.nworkers,
-        }
 
-        with open(self.config_file, "w") as fid:
-            fid.write(yaml.dump(d))
-
-    @classmethod
-    def load(cls, config_file):
-
-        with open(config_file, "r") as fid:
-            kwargs = yaml.load(fid)
-
-        return cls(**kwargs)
-
+DEFAULT_CONFIG = Configuration()

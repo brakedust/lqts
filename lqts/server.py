@@ -8,9 +8,10 @@ from datetime import datetime
 from fastapi import FastAPI
 import ujson
 
-from .schema import Configuration, Job, JobQueue, JobSpec, JobStatus, JobID, DEFAULT_CONFIG
-from .mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
-from .job_runner import run_command
+from lqts.schema import Job, JobQueue, JobSpec, JobStatus, JobID
+from lqts.mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
+from lqts.job_runner import run_command
+from lqts.config import DEFAULT_CONFIG, Configuration
 
 
 class Application(FastAPI):
@@ -29,13 +30,16 @@ class Application(FastAPI):
         #         data = yaml.full_load(fid.read())
         #     self.queue = JobQueue(**data)
         # else:
-        self.queue = JobQueue()
-        if os.path.exists(DEFAULT_CONFIG.queue_file):
-            self.queue.load()
+        self.queue = JobQueue(
+            name="default_queue",
+            queue_file=DEFAULT_CONFIG.queue_file,
+            completed_limit=DEFAULT_CONFIG.completed_limit,
+        )
+        # if os.path.exists(DEFAULT_CONFIG.queue_file):
+        # self.queue.queue_file = DEFAULT_CONFIG.queue_file
+        # self.queue.load()
 
         self.queue._start_manager_thread()
-
-
 
         self.dependencies = defaultdict(list)
 
@@ -46,7 +50,6 @@ class Application(FastAPI):
 
         self.pool = None
         self.__start_workers()
-
 
         self.log.info(f"Visit {self.config.url} to view the queue status")
 
@@ -81,7 +84,7 @@ class Application(FastAPI):
         self.log.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter(
-            fmt   # "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
+            fmt  # "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
         )
 
         if log_file:
@@ -95,132 +98,21 @@ class Application(FastAPI):
             file_handler.setFormatter(formatter)
             self.log.addHandler(file_handler)
 
-    def get_job_by_id(self, job_id: JobID) -> Job:
-        """
-        Looks for a job in the queue with the given job id
-
-        Parameters
-        ----------
-        job_id
-            The id for the requested job
-
-        Returns
-        -------
-        job
-            dict containing details about the job
-        """
-        if job_id in self.queue.running_jobs:
-            return self.queue.running_jobs[job_id]
-        elif job_id in self.queue.queued_jobs:
-            return self.queue.queued_jobs[job_id]
-        else:
-            for job in self.queue.completed_jobs:
-                if job.job_id == job_id:
-                    return job
-        return None
-
     def job_started_handler(self, job: Job):
-        # job = self.queue.queued_jobs.pop(job.job_id)
-        # self.queue.running_jobs[job.job_id] = job
-        # job.status = JobStatus.Running
-        # job.started = datetime.now()
+
         self.queue.on_job_started(job.job_id)
         self.log.info(f"--- Started    job {job.job_id} at {job.started.isoformat()}")
 
     def job_done_handler(self, job: Job):
-        # job = self.queue.running_jobs.pop(job.job_id)
-        # job.status = JobStatus.Completed
-        # job.completed = datetime.now()
-        # self.queue.completed_jobs.append(job)
+
         self.queue.on_job_finished(job)
-        self.log.info(f"--- Completed   job {job.job_id} at {job.completed.isoformat()}")
-        # print("# Running jobs = ", len(self.queue.running_jobs))
-
-        # if job.job_id in self.dependencies:
-
-        #     for dependent in self.dependencies[job.job_id]:
-        #         waiting_job: Job = self.get_job_by_id(dependent)
-        #         waiting_job.job_spec.depends.remove(job.job_id)
-        #         waiting_job.completed_depends.append(job.job_id)
-        #         if len(waiting_job.job_spec.depends) == 0:
-
-        #             self.log.info(
-        #                 ">>> Dependencies for job {} now complete".format(
-        #                     waiting_job.job_id
-        #                 )
-        #             )
-        #     self.dependencies.pop(job.job_id)
-
-    # def check_can_job_run(self, job_id: JobID):
-
-    #     job = self.get_job_by_id(job_id)
-    #     dependencies: List[Job] = [self.get_job_by_id(id_) for id_ in job.job_spec.depends]
-
-    #     dependencies = [d for d in dependencies if d is not None]
-
-    #     if not dependencies:
-    #         return True
-
-    #     DEBUG = False
-    #     # print(dependencies)
-    #     running_deps = [d.job_id for d in dependencies if (d.job_id in self.queue.running_jobs)]
-    #     if running_deps:
-    #         if DEBUG:
-    #             print(f'>w<{job.job_id} waiting on running jobs: {running_deps}')
-    #         return False
-
-    #     queued_deps = [d.job_id for d in dependencies if (d.job_id in self.queue.queued_jobs)]
-    #     if queued_deps:
-    #         if DEBUG:
-    #             print(f'>w<{job.job_id} Waiting on queued jobs: {queued_deps}')
-    #         print(self.queue.queued_jobs)
-    #         return False
-
-    #     return True
-
-    def queue_empty(self):
-
-        return any(not job.is_done() for job in self.queue.jobs)
-
-    def submit_jobs(self, job_specs: List[JobSpec]):
-
-        job_ids = []
-        group = self.queue.current_group
-        self.queue.current_group += 1
-        for i, job_spec in enumerate(job_specs):
-            job_id = JobID(group=group, index=i)
-            job = self.queue.submit(job_spec, job_id=job_id)
-            # if job_spec.depends:
-
-            #     for dep in job_spec.depends:
-            #         dep_job_id = JobID.parse_obj(dep)
-            #         dep_job = self.get_job_by_id(dep_job_id)
-            #         if dep_job.status not in (JobStatus.Completed, JobStatus.Deleted):
-            #             self.dependencies[dep_job_id].append(job.job_id)
-
-            job_ids.append(str(job.job_id))
-            self.log.info(
-                f"+++ Assimilated job {job.job_id} at {job.submitted.isoformat()} - {job.job_spec.command}"
-            )
-            # self.log.info(f"Job dependencies for {job.job_id}: {[job.job_spec.depends]}")
-
-            # self.pool.submit(partial(run_command, job), job)
-
-        return job_ids
+        self.log.info(
+            f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
+        )
 
 
 app = Application()
 app.debug = True
-# app.mount('/static', StaticFiles(directory="static"))
-
-
-# def fake_job():
-#     j = JobSpec(command="echo hello", working_dir=os.getcwd())
-#     return j
-
-# app.queue.submit(fake_job())
-# app.queue.submit(fake_job())
-# app.queue.submit(fake_job())
 
 
 @app.get("/")
@@ -229,38 +121,43 @@ def root():
 
 
 @app.get("/qstat")
-def get_queue(options: dict):
+def get_queue_status(options: dict):
     # print(options)
     queue_status = []
 
     # print("qstat 1")
-    for jid, job in app.queue.running_jobs.items():
+    for job in app.queue.running_jobs.values():
         # print(jid)
         # print(job)
         # print()
         queue_status.append(job.json())
 
     # print("qstat 2")
-    for jid, job in app.queue.queued_jobs.items():
+    for job in app.queue.queued_jobs.values():
         queue_status.append(job.json())
 
-    if options.get('completed', False):
-        queue_status.extend([job.json() for jid, job in app.queue.completed_jobs.items()])
+    if options.get("completed", False):
+        queue_status.extend(
+            [job.json() for jid, job in app.queue.completed_jobs.items()]
+        )
     # print("qstat 3")
 
-    return queue_status  #[j.json() for j in app.queue.running_jobs.values()] + [j.json() for j in app.queue.queued_jobs.value()]
+    return (
+        queue_status
+    )  # [j.json() for j in app.queue.running_jobs.values()] + [j.json() for j in app.queue.queued_jobs.value()]
 
 
 @app.post("/qsub")
 def qsub(job_specs: List[JobSpec]):
     # print(f"Submitted job specs {job_specs}")
-    return app.submit_jobs(job_specs)
+    return app.queue.submit(job_specs)
 
 
 @app.on_event("shutdown")
 def on_shutdown():
     app.pool.shutdown(wait=False)
     app.queue.shutdown()
+
 
 @app.get("/qsummary")
 def get_summary():
@@ -319,32 +216,12 @@ def qdel(job_ids: List[JobID]):
     """
     Delete on or more jobs
     """
-    for jid in list(job_ids):
-        if jid.index is None:
-            job_ids.remove(jid)
-            job_ids.extend(j.job_id for j in app.queue.get_job_group(jid.group))
-        # else:
-        #     job_ids.append(jid)
 
-    deleted_jobs = []
-    for job_id in job_ids:
-        # job_id = JobID.parse_obj(jid)
-        # job = app.queue.find_job(job_id)
+    deleted_jobs = app.queue.qdel(job_ids)
 
-        job, queue = app.queue.find_job(job_id)
-
-        if job is None:
-            continue
-
-        should_delete = False
-        if queue == app.queue.running_jobs:
+    for job_id in deleted_jobs:
+        if job_id in app.pool._workers:
             app.pool.kill_job(job_id)
-
-        job.status = JobStatus.Deleted
-        job.completed = datetime.now()
-        queue.pop(job_id)
-        app.queue.completed_jobs[job_id] = job
-        deleted_jobs.append(job_id)
 
     return {"Deleted jobs": deleted_jobs}
 
@@ -375,11 +252,12 @@ def job_request():
 @app.post("/job_done")
 def job_done(done_job: Job):
 
-    job: Job = app.queue.running_jobs.pop(done_job.job_id)
-    job.status = JobStatus.Completed
-    job.completed = done_job.completed
+    app.queue.on_job_finished(done_job)
+    # job: Job = app.queue.running_jobs.pop(done_job.job_id)
+    # job.status = JobStatus.Completed
+    # job.completed = done_job.completed
 
-    app.queue.completed_jobs.append(job)
+    # app.queue.completed_jobs.append(job)
 
 
 @app.post("/job_started")

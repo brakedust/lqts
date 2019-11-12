@@ -4,7 +4,8 @@ import os
 
 import ujson
 
-from lqts.schema import Job, DEFAULT_CONFIG
+from lqts.config import DEFAULT_CONFIG
+from lqts.schema import Job, JobID
 import lqts.displaytable as dt
 
 import lqts.environment
@@ -43,10 +44,11 @@ def qstat(debug=False, completed=False):
                     job.job_spec.command if job.job_spec is not None else "",
                     job.walltime,
                     job.job_spec.working_dir,
-                    ",".join(str(d) for d in job.job_spec.depends) if job.job_spec.depends else '-',
+                    ",".join(str(d) for d in job.job_spec.depends)
+                    if job.job_spec.depends
+                    else "-",
                 ]
             )
-
 
         t = dt.make_table(rows, colsep="|", use_rowsep=False, maxwidth=90)
         print(t)

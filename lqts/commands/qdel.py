@@ -4,7 +4,8 @@ import os
 
 import ujson
 
-from lqts.schema import Job, DEFAULT_CONFIG
+from lqts.schema import Job
+from lqts.config import DEFAULT_CONFIG
 import lqts.displaytable as dt
 from lqts.schema import JobID
 

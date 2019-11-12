@@ -3,7 +3,8 @@ import time
 import sys
 import chardet
 from string import digits
-digits += '. '
+
+digits += ". "
 
 import requests
 import click
@@ -42,7 +43,9 @@ def qwait(job_ids=None, interval=5, port=DEFAULT_CONFIG.port, verbose=0):
             f"{DEFAULT_CONFIG.url}/qstat", json=options
         )  # , json=message)
 
-        queued_or_running_job_ids = set(Job(**ujson.loads(item)).job_id for item in response.json())
+        queued_or_running_job_ids = set(
+            Job(**ujson.loads(item)).job_id for item in response.json()
+        )
 
         waiting_on = job_ids.intersection(queued_or_running_job_ids)
 

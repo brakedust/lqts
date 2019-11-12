@@ -63,7 +63,7 @@ Started: {}
 
         fid = io.StringIO(header)
 
-    output = ":)\n"
+    # output = ":)\n"
     p = None
 
     fid.write(
@@ -82,11 +82,11 @@ Started: {}
     if sys.platform == "linux":
         import shlex
 
-        eol = "\n"
+        # eol = "\n"
         command = shlex.split(job.job_spec.command.strip())
 
     else:
-        eol = "\r\n"
+        # eol = "\r\n"
         command = command.strip()
 
     # print(command)
@@ -107,8 +107,12 @@ Started: {}
         fid.write(serr)
         job.status = JobStatus.Completed
     except FileNotFoundError:
-        fid.write(f"\nERROR: Command not found.  Ensure the command is an executable file.\n")
-        fid.write(f"\Make sure you give the full path to the file or that it is on your system path.\n\n")
+        fid.write(
+            f"\nERROR: Command not found.  Ensure the command is an executable file.\n"
+        )
+        fid.write(
+            f"Make sure you give the full path to the file or that it is on your system path.\n\n"
+        )
         job.status = JobStatus.Error
 
     end = datetime.now()

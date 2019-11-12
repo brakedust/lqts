@@ -1,6 +1,6 @@
 import os
 from multiprocessing import cpu_count
-from lqts.schema import DEFAULT_CONFIG
+from lqts.config import DEFAULT_CONFIG
 import requests
 import click
 

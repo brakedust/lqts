@@ -4,10 +4,11 @@ import requests
 import click
 import ujson
 
-from lqts.schema import JobSpec, JobID, DEFAULT_CONFIG
+from lqts.schema import JobSpec, JobID
 from .click_ext import OptionNargs
 
 import lqts.environment
+from lqts.config import DEFAULT_CONFIG
 
 
 def encode_path(p):
@@ -66,7 +67,16 @@ def qsub(command, args, priority=10, logfile=None, depends=None, debug=False):
 @click.option("-d", "--depends", cls=OptionNargs, default=list)
 @click.option("--debug", is_flag=True, default=False)
 @click.option("--no-log", is_flag=True, default=False)
-def qsub_m(command, files, args, priority=10, logfile=None, depends=None, debug=False, no_log=False):
+def qsub_m(
+    command,
+    files,
+    args,
+    priority=10,
+    logfile=None,
+    depends=None,
+    debug=False,
+    no_log=False,
+):
     """
     Run **command** for each file in **files**.  Pass in args.
 
@@ -89,7 +99,7 @@ def qsub_m(command, files, args, priority=10, logfile=None, depends=None, debug=
         if no_log:
             logfile = None
         else:
-            logfile = f + '.lqts.log'
+            logfile = f + ".lqts.log"
 
         js = JobSpec(
             command=command_str,

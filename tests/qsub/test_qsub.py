@@ -7,7 +7,7 @@ import ujson
 
 from lqts.server import app
 from lqts.commands.qsub import qsub
-from lqts.schema import Job, JobSpec, JobID
+from lqts.schema import Job, JobSpec, JobID, JobQueue
 
 from tests.data import data_path
 
@@ -18,14 +18,16 @@ def log_info(text):
     print(text)
 
 
-app.log.info = log_info
+# app.log.info = log_info
 
 
-client = TestClient(app)
+# client = TestClient(app)
 pwd = os.path.dirname(os.path.abspath(__file__))
 
 
 def test_is_queued():
+
+    q = JobQueue()
 
     job_spec = JobSpec(
         command=f'{data_path}/echo_it.bat "hello"',
@@ -35,17 +37,20 @@ def test_is_queued():
         depends=[],
     )
 
-    response = client.post("qsub", json=[job_spec.dict()])
+    job_id = q.submitted([job_spec])
+    # response = client.post("qsub", json=[job_spec.dict()])
 
-    assert response.json() == ["1.0"]
-    assert app.queue.queued_jobs[0].job_spec.command == job_spec.command
+    assert job_id == JobID.parse_raw("1.0")
+    job = q.find_job(job_id)
 
-    assert app.queue.queued_jobs[0].job_spec.priority == 5
-    assert app.queue.queued_jobs[0].job_spec.working_dir == pwd
-    assert app.queue.queued_jobs[0].job_spec.log_file == "test.log"
-    assert app.queue.queued_jobs[0].job_spec.depends == []
+    assert job.job_spec.command == job_spec.command
 
-    assert app.queue.queued_jobs[0].submitted is not None
+    assert job.job_spec.priority == 5
+    assert job.job_spec.working_dir == pwd
+    assert job.job_spec.log_file == "test.log"
+    assert job.job_spec.depends == []
+
+    assert len(q.queued_jobs) == 1
 
 
 def test_job_depends():
@@ -67,17 +72,19 @@ def test_job_depends():
             depends=[],
         )
 
-    response = client.post("qsub", json=[job_spec.dict()])
-    dependency = response.json()
-    # dependency = ujson.loads(dependency)
+    q = JobQueue()
 
+    # response = client.post("qsub", json=[job_spec.dict()])
+    # dependency = response.json()
+    # dependency = ujson.loads(dependency)
+    job_ids = q.submit([job_spec])
     job_spec = JobSpec(
-        depends=[JobID.parse_obj(dep) for dep in dependency],
+        depends=job_ids,
         command=f'{data_path}/echo_it.bat "goodbye"',
         working_dir=pwd,
     )
-
-    response = client.post("qsub", json=[job_spec.dict()])
+    q.submit([job_spec]
+    # response = client.post("qsub", json=[job_spec.dict()])
 
     # counts = client.get('/qsummary').json()
     # sys.__stdout__.write('counts=' + str(counts))
