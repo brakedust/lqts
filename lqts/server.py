@@ -19,8 +19,12 @@ class Application(FastAPI):
     LoQuTuS Job Scheduling Server
     """
 
+    config: object = None
+
     def __init__(self):
         super().__init__()
+
+        # self.config.log_file = None
 
         self.config = Configuration()
 
@@ -30,28 +34,28 @@ class Application(FastAPI):
         #         data = yaml.full_load(fid.read())
         #     self.queue = JobQueue(**data)
         # else:
+
+        self._setup_logging(None)
         self.queue = JobQueue(
             name="default_queue",
             queue_file=DEFAULT_CONFIG.queue_file,
             completed_limit=DEFAULT_CONFIG.completed_limit,
         )
+        # self.queue.load()
+        self.queue._start_manager_thread()
+        self.queue.log = self.log
         # if os.path.exists(DEFAULT_CONFIG.queue_file):
         # self.queue.queue_file = DEFAULT_CONFIG.queue_file
-        # self.queue.load()
 
-        self.queue._start_manager_thread()
+        # self.dependencies = defaultdict(list)
 
-        self.dependencies = defaultdict(list)
 
-        self.config.log_file = None
-
-        self._setup_logging(self.config.log_file)
         self.log.info("Starting up LoQuTuS server.")
 
         self.pool = None
         self.__start_workers()
 
-        self.log.info(f"Visit {self.config.url} to view the queue status")
+        self.log.info(f"Visit {self.config.url}/qstatus to view the queue status")
 
     def __start_workers(self, nworkers: int = DEFAULT_WORKERS):
         """Starts the worker pool
@@ -65,7 +69,9 @@ class Application(FastAPI):
         #     nworkers = self.config.nworkers
 
         # self.pool = cf.ProcessPoolExecutor(max_workers=nworkers)
-        self.pool = DynamicProcessPool(server=self, max_workers=nworkers, feed_delay=0)
+        self.pool = DynamicProcessPool(
+            server=self, max_workers=nworkers, feed_delay=0.05
+        )
         # self.pool.add_event_callback(self.receive_pool_events)
         self.log.info("Worker pool started with {} workers".format(nworkers))
 
@@ -78,30 +84,44 @@ class Application(FastAPI):
         ----------
         log_file: str
         """
-        fmt = "%(asctime)s %(levelname)s | %(message)s"
-        logging.basicConfig(format=fmt)
-        self.log = logging.getLogger("uvicorn")
-        self.log.setLevel(logging.DEBUG)
+        from lqts.simple_logging import getLogger, Level
 
-        formatter = logging.Formatter(
-            fmt  # "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
-        )
+        self.log = getLogger('lqts', Level.INFO)
+        # self.log = logging.getLogger("lqts")
 
-        if log_file:
-            file_handler = logging.handlers.RotatingFileHandler(
-                log_file, backupCount=2, maxBytes=5 * 1024 * 1024
-            )  # 5 megabytes
-            if self._debug:
-                file_handler.setLevel(logging.DEBUG)
-            else:
-                file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(formatter)
-            self.log.addHandler(file_handler)
+        # fmt = "%(asctime)s | %(levelname)s | %(message)s"
+        # formatter = logging.Formatter(
+        #     fmt  # "%(asctime)s %(levelname)s " + "[%(module)s:%(lineno)d] %(message)s"
+        # )
+        # logging.basicConfig(format='')
+
+        # # self.log.setLevel(logging.DEBUG)
+
+        # for h in self.log.handlers:
+        #     self.log.removeHandler(h)
+
+        # handler = logging.StreamHandler()
+        # handler.setFormatter(formatter)
+        # self.log.addHandler(handler)
+        # # self.log.setFormatter(fmt)
+        # self.log.setLevel(logging.DEBUG)
+
+
+        # if log_file:
+        #     file_handler = logging.handlers.RotatingFileHandler(
+        #         log_file, backupCount=2, maxBytes=5 * 1024 * 1024
+        #     )  # 5 megabytes
+        #     if self._debug:
+        #         file_handler.setLevel(logging.DEBUG)
+        #     else:
+        #         file_handler.setLevel(logging.INFO)
+        #     file_handler.setFormatter(formatter)
+        #     self.log.addHandler(file_handler)
 
     def job_started_handler(self, job: Job):
 
         self.queue.on_job_started(job.job_id)
-        self.log.info(f"--- Started    job {job.job_id} at {job.started.isoformat()}")
+        self.log.info(f">>> Started     job {job.job_id} at {job.started.isoformat()}")
 
     def job_done_handler(self, job: Job):
 
@@ -125,26 +145,22 @@ def get_queue_status(options: dict):
     # print(options)
     queue_status = []
 
-    # print("qstat 1")
-    for job in app.queue.running_jobs.values():
-        # print(jid)
-        # print(job)
-        # print()
-        queue_status.append(job.json())
+    if options.get('running', True):
+        for job in list(app.queue.running_jobs.values()):
+            queue_status.append(job.json())
 
-    # print("qstat 2")
-    for job in app.queue.queued_jobs.values():
-        queue_status.append(job.json())
+    if options.get('queued', True):
+        for job in list(app.queue.queued_jobs.values()):
+            queue_status.append(job.json())
 
     if options.get("completed", False):
         queue_status.extend(
-            [job.json() for jid, job in app.queue.completed_jobs.items()]
+            [job.json() for jid, job in list(app.queue.completed_jobs.items())]
         )
-    # print("qstat 3")
 
     return (
         queue_status
-    )  # [j.json() for j in app.queue.running_jobs.values()] + [j.json() for j in app.queue.queued_jobs.value()]
+    )
 
 
 @app.post("/qsub")
@@ -169,12 +185,16 @@ def get_summary():
     * D = Deleted
     * C = completed
     """
-    c = Counter([job.status.value for job in app.queue.jobs])
-    for letter in "IRQDC":
-        if letter not in c:
-            c[letter] = 0
+    # c = Counter([job.status.value for job in app.queue.jobs])
+    summary = {
+        "Running": len(app.queue.running_jobs),
+        "Queued": len(app.queue.queued_jobs)
+    }
+    # for letter in "RQDC":
+    #     if letter not in c:
+    #         c[letter] = 0
 
-    return c
+    return summary
 
 
 @app.get("/workers")
@@ -196,6 +216,12 @@ def set_workers(count: int):
     app.log.info("Setting maximum number of workers to {}".format(count))
     app.pool.resize(count)
     return app.pool._max_workers
+
+
+@app.get("/jobgroup")
+def get_job_group(group_number: int):
+
+    return list(app.queue.job_groups[group_number].jobs.keys())
 
 
 @app.post("/qclear")
@@ -225,6 +251,13 @@ def qdel(job_ids: List[JobID]):
 
     return {"Deleted jobs": deleted_jobs}
 
+@app.post("/qpriority")
+def qpriority(job_ids: List[JobID], priority: int):
+
+    for job_id in job_ids:
+        job, _ = app.queue.find_job(job_id)
+        job.job_spec.priority = priority
+
 
 @app.get("/qstatus")
 def qstat_html(complete="no"):
@@ -251,7 +284,6 @@ def job_request():
 
 @app.post("/job_done")
 def job_done(done_job: Job):
-
     app.queue.on_job_finished(done_job)
     # job: Job = app.queue.running_jobs.pop(done_job.job_id)
     # job.status = JobStatus.Completed

@@ -34,14 +34,16 @@ setup(
     entry_points={
         "console_scripts": [
             "qsub = lqts.commands.qsub:qsub",
-            "qsub-multi = lqts.commands.qsub:qsub_m",
+            "qsub-multi = lqts.commands.qsub:qsub_multi",
+            "qsub-cmulti = lqts.commands.qsub:qsub_cmulti",
             "qsub-argfile = lqts.commands.qsub:qsub_argfile",
             "qstart = lqts.commands.qstart:qstart",
             "qstat = lqts.commands.qstat:qstat",
             "qclear = lqts.commands.qclear:qclear",
             "qdel = lqts.commands.qdel:qdel",
             "qworkers = lqts.commands.qworkers:qworkers",
-            "qwait = lqts.commands.qwait:qwait"
+            "qwait = lqts.commands.qwait:qwait",
+            "qsummary = lqts.commands.qsummary:qsummary"
         ]
     },
     setup_requires=[

@@ -18,21 +18,25 @@ import lqts.environment
 # @click.option("--logfile", default='', type=str)
 @click.option("--debug", is_flag=True, default=False)
 @click.option("--completed", "-c", is_flag=True, default=False)
-def qstat(debug=False, completed=False):
+@click.option("--running", "-r", is_flag=True, default=False)
+@click.option("--queued", "-q", is_flag=True, default=False)
+def qstat(debug=False, completed=False, running=False, queued=False):
 
-    options = {"completed": completed}
+    options = (completed, running, queued)
+    if not any(options):
+        options = {"completed": False, "running":True, "queued": True}
+    else:
+        options = {"completed": completed, "running":running, "queued": queued
+
     response = requests.get(
         f"{DEFAULT_CONFIG.url}/qstat", json=options
-    )  # , json=message)
+    )
 
     if debug:
         print(response.text)
     else:
         jobs = [Job(**ujson.loads(item)) for item in response.json()]
-        # print(jobs)
-        # td = dt.tablize(
-        #                 data,
-        #                 include=['job_id', 'command', 'status', 'started', 'walltime'])
+
         rows = [["ID", "St", "Pr", "Command", "Walltime", "WorkingDir", "Dep"]]
         for job in jobs:
             job: Job = job

@@ -11,7 +11,8 @@ import click
 import ujson
 import tqdm
 
-from lqts.schema import JobSpec, JobID, JobStatus, DEFAULT_CONFIG, Job
+from lqts.schema import JobSpec, JobID, JobStatus, Job
+from lqts.config import DEFAULT_CONFIG, Configuration
 
 # from lqts.click_ext import OptionNargs
 
@@ -20,17 +21,36 @@ import lqts.environment
 
 @click.command("qwait")
 @click.argument("job_ids", nargs=-1)
-@click.option("--interval", "-i", type=int, default=5)
+@click.option("--interval", "-i", type=float, default=5)
 @click.option("--port", type=int, default=DEFAULT_CONFIG.port)
 def qwait(job_ids=None, interval=5, port=DEFAULT_CONFIG.port, verbose=0):
 
-    if not job_ids:
+    if not job_ids and sys.stdin.seekable():
         # get the job ids from standard input
         job_id_string = "".join(c for c in sys.stdin.read() if c in digits)
         job_ids = job_id_string.split()
 
+    if not job_ids:
+        print("no jobs to wait on.")
+        return
+
     # Parse the job ids
-    job_ids = set(JobID.parse_obj(jid) for jid in job_ids)
+    input_job_ids = job_ids
+    job_ids = []
+    for job_id in list(input_job_ids):
+        if "." not in job_id:
+            # A job group was specified
+            response = requests.get(
+                f"{DEFAULT_CONFIG.url}/jobgroup?group_number={int(job_id)}"
+            )
+            # print(response.json())
+            if response.status_code == 200:
+                job_ids.extend([JobID(**item) for item in response.json()])
+
+        else:
+            job_ids.append(JobID.parse_obj(job_id))
+
+    job_ids = set(job_ids)
 
     t = None
     done_waiting = False
@@ -48,7 +68,7 @@ def qwait(job_ids=None, interval=5, port=DEFAULT_CONFIG.port, verbose=0):
         )
 
         waiting_on = job_ids.intersection(queued_or_running_job_ids)
-
+        # print(waiting_on)
         if len(waiting_on) > 0:
             done_waiting = False
             time.sleep(interval)
@@ -56,7 +76,9 @@ def qwait(job_ids=None, interval=5, port=DEFAULT_CONFIG.port, verbose=0):
                 if len(waiting_on) <= 20:
                     msg = str(waiting_on)
                 else:
-                    msg = f"{len(waiting_on)} jobs"
+                    lsw = list(sorted(waiting_on))
+                    msg = f"{len(waiting_on)} jobs: {lsw[0]} - {lsw[-1]}"
+                    del lsw
                 print(f"Waiting on {msg}")
                 t = tqdm.tqdm(total=len(waiting_on))
 

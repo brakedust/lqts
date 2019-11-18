@@ -197,7 +197,7 @@ class DynamicProcessPool(cf.Executor):
             # see if any results are available
 
             job = self.q_output.get(timeout=timeout)
-            print(job)
+            # print(job)
             self.log.info("Got result {} = {}".format(job.job_id, job))
             self.server.job_done_handler(job)
 
@@ -254,6 +254,13 @@ class DynamicProcessPool(cf.Executor):
 
             p = mp.Process(target=mp_worker_func, args=(self.q_input, self.q_output))
             p.start()
+            p2 = psutil.Process(p.pid)
+            if psutil.WINDOWS:
+                p2.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+                p2.ionice(psutil.IOPRIO_LOW)
+            elif psutil.LINUX:
+                p2.nice(10)
+                p2.ionice(psutil.IOPRIO_CLASS_BE, value=5)
 
         with self.w_lock:
             self._workers[job.job_id] = (work_item, p)

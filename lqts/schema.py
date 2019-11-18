@@ -7,14 +7,14 @@ from os.path import expanduser, join
 from queue import PriorityQueue
 from typing import Any, Deque, Dict, List, Union
 from uuid import uuid4
-import logging
+# import logging
 
 from pydantic import BaseModel, BaseSettings
 from pydantic.dataclasses import dataclass
-
+from lqts.simple_logging import getLogger, Level
 DEBUG = False
 
-LOGGER = logging.getLogger("uvicorn")
+LOGGER = getLogger("lqts", Level.INFO)
 
 
 class JobID(BaseModel):
@@ -223,7 +223,7 @@ class JobQueue(BaseModel):
 
     is_dirty: bool = False
     flags: list = []
-
+    log: Any = None
     # def __post_init__(self):
 
     #     self._last_save = datetime(year=1995)
@@ -284,12 +284,13 @@ class JobQueue(BaseModel):
             LOGGER.info(
                 f"+++ Assimilated job {job.job_id} at {job.submitted.isoformat()} - {job.job_spec.command}"
             )
-        else:
+        elif len(job_specs) > 1:
+            first_job_id, *_, last_job_id = list(group.jobs.keys())
             LOGGER.info(
-                f"+++ Assimilated {len(group.jobs)} into job group {group.group_number} at {datetime.now().isoformat()}"
+                f"+++ Assimilated jobs {first_job_id} - {last_job_id} at {group.jobs[first_job_id].submitted.isoformat()}"
             )
 
-        self.on_queue_change
+        self.on_queue_change()
         return list(group.jobs.keys())
 
     def running_count(self) -> int:
