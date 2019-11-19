@@ -5,10 +5,10 @@ import sys
 
 python = None
 python_possibilites = [
-    join(sys.prefix, 'python'),
-    join(sys.prefix, 'python.exe'),
-    join(sys.prefix, 'bin', 'python'),
-    join(sys.prefix, 'Scripts', 'python.exe')
+    join(sys.prefix, "python"),
+    join(sys.prefix, "python.exe"),
+    join(sys.prefix, "bin", "python"),
+    join(sys.prefix, "Scripts", "python.exe"),
 ]
 
 for pypos in python_possibilites:
@@ -17,11 +17,11 @@ for pypos in python_possibilites:
         break
 
 if python is None:
-    print(f'Could not locate python in {sys.prefix}')
+    print(f"Could not locate python in {sys.prefix}")
     sys.exit(1)
 
 
-os.system(f'{python} version_maker.py')
+os.system(f"{python} version_maker.py")
 
 from version import VERSION
 
@@ -43,7 +43,7 @@ setup(
             "qdel = lqts.commands.qdel:qdel",
             "qworkers = lqts.commands.qworkers:qworkers",
             "qwait = lqts.commands.qwait:qwait",
-            "qsummary = lqts.commands.qsummary:qsummary"
+            "qsummary = lqts.commands.qsummary:qsummary",
         ]
     },
     setup_requires=[

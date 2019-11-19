@@ -9,7 +9,7 @@ from lqts.config import DEFAULT_CONFIG
 @click.option("--port", type=int, default=DEFAULT_CONFIG.port)
 def qstart(port=DEFAULT_CONFIG.port):
 
-    args = ["uvicorn", "--port", str(port), "--log-level", "warning", "lqts.server:app"]
+    args = ["start", "uvicorn", "--port", str(port), "--log-level", "warning", "lqts.server:app"]
     print(" ".join(args))
     subprocess.call(" ".join(args), shell=True)
 
