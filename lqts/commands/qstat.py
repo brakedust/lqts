@@ -26,7 +26,7 @@ def qstat(debug=False, completed=False, running=False, queued=False):
     if not any(options):
         options = {"completed": False, "running":True, "queued": True}
     else:
-        options = {"completed": completed, "running":running, "queued": queued
+        options = {"completed": completed, "running":running, "queued": queued}
 
     response = requests.get(
         f"{DEFAULT_CONFIG.url}/qstat", json=options
