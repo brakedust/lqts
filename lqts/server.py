@@ -12,7 +12,7 @@ from lqts.schema import Job, JobQueue, JobSpec, JobStatus, JobID
 from lqts.mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
 from lqts.job_runner import run_command
 from lqts.config import DEFAULT_CONFIG, Configuration
-
+from lqts.version import VERSION
 
 class Application(FastAPI):
     """
@@ -50,7 +50,7 @@ class Application(FastAPI):
         # self.dependencies = defaultdict(list)
 
 
-        self.log.info("Starting up LoQuTuS server.")
+        self.log.info(f"Starting up LoQuTuS server - {VERSION}")
 
         self.pool = None
         self.__start_workers()
