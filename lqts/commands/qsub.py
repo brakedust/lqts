@@ -22,7 +22,8 @@ def encode_path(p):
 @click.option("--logfile", default="", type=str)
 @click.option("-d", "--depends", cls=OptionNargs, default=list, type=list)
 @click.option("--debug", is_flag=True, default=False)
-def qsub(command, args, priority=1, logfile=None, depends=None, debug=False):
+@click.option('--walltime', type=str, default=None)
+def qsub(command, args, priority=1, logfile=None, depends=None, debug=False, walltime=None):
 
     command_str = command + " " + " ".join(f'"{arg}"' for arg in args)
     # print(command)
@@ -37,12 +38,20 @@ def qsub(command, args, priority=1, logfile=None, depends=None, debug=False):
     else:
         depends = []
 
+    if walltime:
+        if ":" in walltime:
+            hrs, minutes, sec = [int(x) for x in walltime.split(":")]
+            seconds = sec + 60*minutes + hrs*3600
+        else:
+            walltime = float(walltime)
+
     job_spec = JobSpec(
         command=command_str,
         working_dir=working_dir,
         log_file=logfile,
         priority=priority,
         depends=depends,
+        walltime=walltime
     )
     # print(job_spec)
     # json_string = ujson.dumps([job_spec.dict()]).replace("\\", "")

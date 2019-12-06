@@ -51,11 +51,11 @@ def qpriority(priority=10, job_ids=None, port=DEFAULT_CONFIG.port):
             job_ids.append(JobID.parse_obj(job_id))
 
     job_ids = set(job_ids)
-
+    data = {"priority": priority, "job_ids": [str(j) for j in job_ids]}
     respoonse = requests.post(
         f"{DEFAULT_CONFIG.url}/qpriority",
-        data={}
-
+        json=data
+    )
 
 
 if __name__ == "__main__":

@@ -99,6 +99,7 @@ class JobSpec(BaseModel):
     priority: int = 10
     ncores: int = 1
     depends: List[JobID] = None
+    walltime: timedelta = None
 
     def __lt__(self, other: "JobSpec"):
         return self.priority > other.priority
@@ -501,11 +502,15 @@ class JobQueue(BaseModel):
         for job_id in list(job_ids):
             if job_id.index is None:
                 for job_id2 in self.job_groups[job_id.group]:
-                    job = self.pop_job(*self.find_job(job_id2))
-                    deleted_job_ids.append(job.job_id)
+                    job, queue = self.find_job(job_id2)
+                    if job is not None:
+                        job = self.pop_job(job, queue)
+                        deleted_job_ids.append(job.job_id)
             else:
-                job = self.pop_job(*self.find_job(job_id))
-                deleted_job_ids.append(job.job_id)
+                job, queue = self.find_job(job_id)
+                if job is not None:
+                    job = self.pop_job(job, queue)
+                    deleted_job_ids.append(job.job_id)
 
         self.on_queue_change()
 

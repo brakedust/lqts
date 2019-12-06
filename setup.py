@@ -44,12 +44,13 @@ setup(
             "qworkers = lqts.commands.qworkers:qworkers",
             "qwait = lqts.commands.qwait:qwait",
             "qsummary = lqts.commands.qsummary:qsummary",
+            "qpriority = lqts.commands.qpriority:qpriority"
         ]
     },
     setup_requires=[
         "click",
         "requests",
-        "pydantic<0.32.2",
+        "pydantic==0.25",
         "fastapi",
         "ujson",
         "uvicorn",
