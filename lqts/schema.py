@@ -9,9 +9,11 @@ from typing import Any, Deque, Dict, List, Union
 from uuid import uuid4
 # import logging
 
-from pydantic import BaseModel, BaseSettings
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel
 from lqts.simple_logging import getLogger, Level
+
+from lqts.config import Configuration
+
 DEBUG = False
 
 LOGGER = getLogger("lqts", Level.INFO)
@@ -97,7 +99,7 @@ class JobSpec(BaseModel):
     working_dir: str
     log_file: str = None
     priority: int = 10
-    ncores: int = 1
+    cores: int = 1  # number of cores required by the job
     depends: List[JobID] = None
     walltime: timedelta = None
 
@@ -228,6 +230,9 @@ class JobQueue(BaseModel):
     is_dirty: bool = False
     flags: list = []
     log: Any = None
+
+    config: Configuration = Configuration()
+
     # def __post_init__(self):
 
     #     self._last_save = datetime(year=1995)
@@ -240,6 +245,9 @@ class JobQueue(BaseModel):
     #     if start_manager_thread:
     #         self._start_manager_thread()
     #     LOGGER =
+
+    def start_up(self):
+        self._start_manager_thread()
 
     def on_queue_change(self, *args, **kwargs):
         """
@@ -300,11 +308,13 @@ class JobQueue(BaseModel):
     def running_count(self) -> int:
         """
         Gets the current nuber of running jobs sum (ncores_each_job * njobs).
+
+        This is the number that is used to determine whether or not to start up another job
         """
 
         n = 0
         for job in self.running_jobs.values():
-            n += job.job_spec.ncores
+            n += job.job_spec.cores
 
         return n
 
@@ -318,15 +328,17 @@ class JobQueue(BaseModel):
         for job in sorted(self.queued_jobs.values()):
             return job
 
-    def on_job_started(self, job_id):
+    def on_job_started(self, started_job:Job):
         """
         Call this when a job is about to start
         """
-        job = self.queued_jobs.pop(job_id)
+        job = self.queued_jobs.pop(started_job.job_id)
         job.status = JobStatus.Running
         job.started = datetime.now()
         self.running_jobs[job.job_id] = job
         self.on_queue_change()
+
+        self.log.info(f">>> Started     job {job.job_id} at {job.started.isoformat()}")
 
     def on_job_finished(self, completed_job: Job):
         """
@@ -341,6 +353,9 @@ class JobQueue(BaseModel):
             pass
 
         self.on_queue_change()
+        self.log.info(
+            f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
+        )
 
     def check_can_job_run(self, job_id: JobID) -> bool:
         """

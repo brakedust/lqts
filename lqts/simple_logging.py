@@ -92,7 +92,8 @@ class ConsoleHandler:
 
     def log(self, level: Union[Level, int], message: str):
         if level >= self.level:
-            print(f"{datetime.now().isoformat()} | {level.name} | {message}")
+            # print(f"{datetime.now().isoformat()} | {level.name} | {message}")
+            print(f"{message}")
 
     def log_exception(self, level: Union[Level, int], message: str):
         if level >= self.level:

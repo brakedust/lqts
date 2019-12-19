@@ -1,7 +1,7 @@
 import os
 import time
 import sys
-import chardet
+from pathlib import Path
 from string import digits
 
 digits += ". "
@@ -12,18 +12,29 @@ import ujson
 import tqdm
 
 from lqts.schema import JobSpec, JobID, JobStatus, Job
-from lqts.config import DEFAULT_CONFIG, Configuration
+from lqts.config import Configuration
 
 # from lqts.click_ext import OptionNargs
 
 import lqts.environment
 
+if Path(".env").exists():
+    config = Configuration.load_env_file(".env")
+else:
+    config = Configuration()
+
 
 @click.command("qpriority")
 @click.argument("priority", nargs=1)
 @click.argument("job_ids", nargs=-1)
-@click.option("--port", type=int, default=DEFAULT_CONFIG.port)
-def qpriority(priority=10, job_ids=None, port=DEFAULT_CONFIG.port):
+@click.option("--port", default=config.port, help="The port number of the server")
+@click.option(
+    "--ip_address", default=config.ip_address, help="The IP address of the server"
+)
+def qpriority(
+    priority=10, job_ids=None, port=config.port, ip_address=config.ip_address
+):
+    """Change the priority of one or more jobs"""
 
     if not job_ids and sys.stdin.seekable():
         # get the job ids from standard input
@@ -34,15 +45,16 @@ def qpriority(priority=10, job_ids=None, port=DEFAULT_CONFIG.port):
         print("no jobs to wait on.")
         return
 
+    config.port = port
+    config.ip_address = ip_address
+
     # Parse the job ids
     input_job_ids = job_ids
     job_ids = []
     for job_id in list(input_job_ids):
         if "." not in job_id:
             # A job group was specified
-            response = requests.get(
-                f"{DEFAULT_CONFIG.url}/jobgroup?group_number={int(job_id)}"
-            )
+            response = requests.get(f"{config.url}/jobgroup?group_number={int(job_id)}")
             # print(response.json())
             if response.status_code == 200:
                 job_ids.extend([JobID(**item) for item in response.json()])
@@ -50,13 +62,13 @@ def qpriority(priority=10, job_ids=None, port=DEFAULT_CONFIG.port):
         else:
             job_ids.append(JobID.parse_obj(job_id))
 
-    job_ids = set(job_ids)
-    data = {"priority": priority, "job_ids": [str(j) for j in job_ids]}
-    respoonse = requests.post(
-        f"{DEFAULT_CONFIG.url}/qpriority",
-        json=data
-    )
+    # job_ids = set(job_ids)
+    job_ids = [jid.dict() for jid in set(job_ids)]
+    # data = {"priority": priority, "job_ids": job_ids}
+    # print(data)
+    response = requests.post(f"{config.url}/qpriority", params={"priority":priority}, json=job_ids)
 
+    print(response.text)
 
 if __name__ == "__main__":
     qpriority()

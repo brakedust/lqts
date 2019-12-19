@@ -1,7 +1,8 @@
 import os
 import time
 import sys
-import chardet
+# import chardet
+from pathlib import Path
 from string import digits
 
 digits += ". "
@@ -12,18 +13,26 @@ import ujson
 import tqdm
 
 from lqts.schema import JobSpec, JobID, JobStatus, Job
-from lqts.config import DEFAULT_CONFIG, Configuration
 
 # from lqts.click_ext import OptionNargs
 
 import lqts.environment
 
+from lqts.config import Configuration
+
+
+if Path(".env").exists():
+    config = Configuration.load_env_file(".env")
+else:
+    config = Configuration()
 
 @click.command("qwait")
 @click.argument("job_ids", nargs=-1)
-@click.option("--interval", "-i", type=float, default=5)
-@click.option("--port", type=int, default=DEFAULT_CONFIG.port)
-def qwait(job_ids=None, interval=5, port=DEFAULT_CONFIG.port, verbose=0):
+@click.option("--interval", "-i", type=float, default=5, help='How often to poll the server to check on progress')
+@click.option("--port", default=config.port, help="The port number of the server")
+@click.option("--ip_address", default=config.ip_address, help="The IP address of the server")
+def qwait(job_ids=None, interval=5, port=config.port, ip_address=config.ip_address, verbose=0):
+    """Blocks until the specified jobs have completed"""
 
     if not job_ids and sys.stdin.seekable():
         # get the job ids from standard input
@@ -41,7 +50,7 @@ def qwait(job_ids=None, interval=5, port=DEFAULT_CONFIG.port, verbose=0):
         if "." not in job_id:
             # A job group was specified
             response = requests.get(
-                f"{DEFAULT_CONFIG.url}/jobgroup?group_number={int(job_id)}"
+                f"{config.url}/jobgroup?group_number={int(job_id)}"
             )
             # print(response.json())
             if response.status_code == 200:
@@ -60,7 +69,7 @@ def qwait(job_ids=None, interval=5, port=DEFAULT_CONFIG.port, verbose=0):
         options = {"completed": False}
 
         response = requests.get(
-            f"{DEFAULT_CONFIG.url}/qstat", json=options
+            f"{config.url}/qstat", json=options
         )  # , json=message)
 
         queued_or_running_job_ids = set(

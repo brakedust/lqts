@@ -90,10 +90,10 @@ class DynamicProcessPool(cf.Executor):
     It can send notifications of job starts and completions.
     """
 
-    def __init__(self, server , max_workers=DEFAULT_WORKERS, feed_delay=0.05):
+    def __init__(self, queue: JobQueue , max_workers=DEFAULT_WORKERS, feed_delay=0.05):
 
-        self.server = server
-        # self.server_queue: JobQueue = server.queue
+        # self.server = server
+        self.job_queue: JobQueue = queue
 
         if max_workers is not None:
             if max_workers <= 0:
@@ -199,7 +199,7 @@ class DynamicProcessPool(cf.Executor):
             job = self.q_output.get(timeout=timeout)
             # print(job)
             self.log.info("Got result {} = {}".format(job.job_id, job))
-            self.server.job_done_handler(job)
+            self.job_queue.on_job_finished(job)
 
         except queue.Empty:
             pass
@@ -214,26 +214,12 @@ class DynamicProcessPool(cf.Executor):
         self.feed_queue()
 
     def submit_one_job(self):
-
+        """Start one job running in the pool"""
         future = cf.Future()
 
         # job = None
-        job = self.server.queue.next_job()
-        # for jid in self.server.queue.queued_jobs:
-        #     # j: Job = j
-        #     if self.server.check_can_job_run(jid):
-        #         job = self.server.queue.queued_jobs[jid]
-        #         # self.server.queue.running_jobs[jid] = job
-        #         # self.server.queue.queued_jobs = [jb for jb in self.server.queue.queued_jobs if jb.job_id != j.job_id]
-        #         # self.server.queue.running_jobs[job.job_id] = job
-        #         # job.status = JobStatus.Running
-        #         break
-        #     else:
-        #         pass
-        #         # print(f"Job cannot run: {j}")
-        #         # print(self.server.queue.running_jobs)
-        #         # print(self.server.queue.queued_jobs)
-        # else:
+        job = self.job_queue.next_job()
+
         if job is None:
             return False, None
 
@@ -243,7 +229,7 @@ class DynamicProcessPool(cf.Executor):
 
         with self.q_lock:
             # self.server.log.info(f"<-> Started     job {job.job_id} at {datetime.now().isoformat()}")
-            self.server.job_started_handler(job)
+            self.job_queue.on_job_started(job)
             # self._queue.append(work_item)
             self._results[job.job_id] = work_item
 
@@ -254,6 +240,9 @@ class DynamicProcessPool(cf.Executor):
 
             p = mp.Process(target=mp_worker_func, args=(self.q_input, self.q_output))
             p.start()
+
+            # Start the processes nicely so we try to leave some resources
+            # available on the host system
             p2 = psutil.Process(p.pid)
             if psutil.WINDOWS:
                 p2.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
@@ -274,8 +263,9 @@ class DynamicProcessPool(cf.Executor):
         """
         # log.debug('feeding q {}'.format(len(self._workers)))
         i = 1
-        while (len(self._workers) < self._max_workers) and (
-            len(self.server.queue.queued_jobs) > 0
+        # while (len(self._workers) < self._max_workers) and (
+        while (self.job_queue.running_count() < self._max_workers) and (
+            len(self.job_queue.queued_jobs) > 0
         ):
 
             # while there is work to do and workers available, start up new jobs

@@ -36,7 +36,7 @@ def run_command(job: Job):
     #            job['jobid'], job['started']))
 
     header = """
-Executed with LQTS (the Lightweight Queueing[T] System)
+Executed with LQTS (the Lightweight Queueing System)
 LQTS Version {}
 -----------------------------------------------
 Job ID:  {}
@@ -137,16 +137,3 @@ Elapsed: {}
     fid.close()
 
     return job
-
-
-# def job_done(server, future):
-#     """
-#     Called when a job finishes.  This callback is added to each Future object
-#     in submit_job_handler.
-#     """
-#     job_done = future.result()
-
-#     for job, fut in server.jobs:
-#         if job["job_id"] == job_done["job_id"]:
-#             job.update(job_done)
-#             break

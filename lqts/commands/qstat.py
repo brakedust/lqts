@@ -1,14 +1,20 @@
+from pathlib import Path
 import requests
 import click
 import os
 
 import ujson
 
-from lqts.config import DEFAULT_CONFIG
+from lqts.config import Configuration
 from lqts.schema import Job, JobID
 import lqts.displaytable as dt
 
 import lqts.environment
+
+if Path(".env").exists():
+    config = Configuration.load_env_file(".env")
+else:
+    config = Configuration()
 
 
 @click.command("qstat")
@@ -20,17 +26,30 @@ import lqts.environment
 @click.option("--completed", "-c", is_flag=True, default=False)
 @click.option("--running", "-r", is_flag=True, default=False)
 @click.option("--queued", "-q", is_flag=True, default=False)
-def qstat(debug=False, completed=False, running=False, queued=False):
+@click.option("--port", default=config.port, help="The port number of the server")
+@click.option(
+    "--ip_address", default=config.ip_address, help="The IP address of the server"
+)
+def qstat(
+    debug=False,
+    completed=False,
+    running=False,
+    queued=False,
+    port=config.port,
+    ip_address=config.ip_address,
+):
+    """Prints a table of the queue status to the terminal."""
 
     options = (completed, running, queued)
     if not any(options):
-        options = {"completed": False, "running":True, "queued": True}
+        options = {"completed": False, "running": True, "queued": True}
     else:
-        options = {"completed": completed, "running":running, "queued": queued}
+        options = {"completed": completed, "running": running, "queued": queued}
 
-    response = requests.get(
-        f"{DEFAULT_CONFIG.url}/qstat", json=options
-    )
+    config.port = port
+    config.ip_address = ip_address
+
+    response = requests.get(f"{config.url}/qstat", json=options)
 
     if debug:
         print(response.text)

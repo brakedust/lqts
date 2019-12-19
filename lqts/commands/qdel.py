@@ -1,15 +1,20 @@
 import requests
 import click
 import os
-
+from pathlib import Path
 import ujson
 
 from lqts.schema import Job
-from lqts.config import DEFAULT_CONFIG
+from lqts.config import Configuration
 import lqts.displaytable as dt
 from lqts.schema import JobID
 
 import lqts.environment
+
+if Path(".env").exists():
+    config = Configuration.load_env_file(".env")
+else:
+    config = Configuration()
 
 
 @click.command("qdel")
@@ -19,15 +24,11 @@ import lqts.environment
 # @click.option("--logfile", default='', type=str)
 @click.argument("job_ids", nargs=-1)
 @click.option("--debug", is_flag=True, default=False)
-def qdel(job_ids, debug=False):
+@click.option("--port", default=config.port, help="The port number of the server")
+@click.option("--ip_address", default=config.ip_address, help="The IP address of the server")
+def qdel(job_ids, debug=False, port=config.port, ip_address=config.ip_address):
+    """Delete jobs from the queue"""
 
-    # job_ids = [JobID.parse_obj(jid).dict() for jid in job_ids]
-
-
-    # if debug:
-    #     print(response.json())
-    # else:
-    #     print(response.text)
 
     if not job_ids and sys.stdin.seekable():
         # get the job ids from standard input
@@ -38,6 +39,9 @@ def qdel(job_ids, debug=False):
         print("no jobs to wait on.")
         return
 
+    config.port = port
+    config.ip_address = ip_address
+
     # Parse the job ids
     input_job_ids = job_ids
     job_ids = []
@@ -45,7 +49,7 @@ def qdel(job_ids, debug=False):
         if "." not in job_id:
             # A job group was specified
             response = requests.get(
-                f"{DEFAULT_CONFIG.url}/jobgroup?group_number={int(job_id)}"
+                f"{config.url}/jobgroup?group_number={int(job_id)}"
             )
             # print(response.json())
             if response.status_code == 200:
@@ -56,6 +60,6 @@ def qdel(job_ids, debug=False):
 
     job_ids = [jid.dict() for jid in set(job_ids)]
 
-    response = requests.post(f"{DEFAULT_CONFIG.url}/qdel", json=job_ids)
+    response = requests.post(f"{config.url}/qdel", json=job_ids)
 
     print("Jobs deleted: " + response.text)
