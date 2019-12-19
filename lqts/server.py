@@ -6,12 +6,13 @@ from collections import defaultdict, Counter
 from datetime import datetime
 
 from fastapi import FastAPI
+from starlette.responses import RedirectResponse
 import ujson
 
 from lqts.schema import Job, JobQueue, JobSpec, JobStatus, JobID
 from lqts.mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
 from lqts.job_runner import run_command
-from lqts.config import DEFAULT_CONFIG, Configuration
+from lqts.config import Configuration
 from lqts.version import VERSION
 
 class Application(FastAPI):
@@ -38,17 +39,12 @@ class Application(FastAPI):
         self._setup_logging(None)
         self.queue = JobQueue(
             name="default_queue",
-            queue_file=DEFAULT_CONFIG.queue_file,
-            completed_limit=DEFAULT_CONFIG.completed_limit,
+            queue_file=self.config.queue_file,
+            completed_limit=self.config.completed_limit,
         )
-        # self.queue.load()
+
         self.queue._start_manager_thread()
         self.queue.log = self.log
-        # if os.path.exists(DEFAULT_CONFIG.queue_file):
-        # self.queue.queue_file = DEFAULT_CONFIG.queue_file
-
-        # self.dependencies = defaultdict(list)
-
 
         self.log.info(f"Starting up LoQuTuS server - {VERSION}")
 
@@ -56,6 +52,10 @@ class Application(FastAPI):
         self.__start_workers()
 
         self.log.info(f"Visit {self.config.url}/qstatus to view the queue status")
+
+        if self.config.resume_on_start_up:
+            self.log.info('Attempting to resume queue')
+            self.queue.load()
 
     def __start_workers(self, nworkers: int = DEFAULT_WORKERS):
         """Starts the worker pool
@@ -137,8 +137,11 @@ app.debug = True
 
 @app.get("/")
 def root():
-    return "Hello, world!"
-
+    # app.url_path_for()
+    # return "Hello, world!"
+    url = app.url_path_for("qstatus")
+    response = RedirectResponse(url=url)
+    return response
 
 @app.get("/qstat")
 def get_queue_status(options: dict):

@@ -30,7 +30,7 @@ class JobID(BaseModel):
         return hash(str(self))
 
     def __str__(self):
-        return f"{self.group}.{self.index}"
+        return f"{self.group}.{self.index:0>3}"
 
     # def __eq__(self, other):
     # return (self.group == other.group) and (self.index == other.index)
@@ -142,11 +142,14 @@ class Job(BaseModel):
     @property
     def walltime(self) -> timedelta:
 
-        if self.completed is not None:
-            return self.completed - self.started
-        elif self.started is not None:
-            return datetime.now() - self.started
-        else:
+        try:
+            if self.completed is not None:
+                return self.completed - self.started
+            elif self.started is not None:
+                return datetime.now() - self.started
+            else:
+                return timedelta(0)
+        except TypeError:
             return timedelta(0)
 
     def _should_prune(self) -> bool:

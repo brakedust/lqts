@@ -83,7 +83,7 @@ def test_job_depends():
         command=f'{data_path}/echo_it.bat "goodbye"',
         working_dir=pwd,
     )
-    q.submit([job_spec]
+    q.submit([job_spec])
     # response = client.post("qsub", json=[job_spec.dict()])
 
     # counts = client.get('/qsummary').json()
