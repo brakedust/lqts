@@ -36,7 +36,7 @@ setup(
             "qsub = lqts.commands.qsub:qsub",
             "qsub-multi = lqts.commands.qsub:qsub_multi",
             "qsub-cmulti = lqts.commands.qsub:qsub_cmulti",
-            "qsub-argfile = lqts.commands.qsub:qsub_argfile",
+            "qsub-argfile = lqts.commands.qsub:qsub_argfile_command",
             "qsub-test = lqts.commands.qsub:qsub_test",
             "qstart = lqts.commands.qstart:qstart",
             "qstat = lqts.commands.qstat:qstat",

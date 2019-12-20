@@ -349,13 +349,14 @@ class JobQueue(BaseModel):
             job.status = completed_job.status
             job.completed = completed_job.completed
             self.completed_jobs[job.job_id] = job
+            self.log.info(
+                f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
+            )
         except KeyError:
             pass
 
         self.on_queue_change()
-        self.log.info(
-            f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
-        )
+
 
     def check_can_job_run(self, job_id: JobID) -> bool:
         """

@@ -215,7 +215,7 @@ def qsub_cmulti(
     config.port = port
     config.ip_address = ip_address
 
-    response = requests.post(f"{DEFAULT_CONFIG.url}/qsub", json=job_specs)
+    response = requests.post(f"{config.url}/qsub", json=job_specs)
 
     if response.status_code == 200:
         if debug:
@@ -379,6 +379,7 @@ def qsub_argfile_command(
         depends,
         debug,
         submit_delay,
+        cores,
         port,
         ip_address
     )
@@ -526,3 +527,4 @@ def qsub_test(
         cores=cores
         # walltime=walltime
     )
+
