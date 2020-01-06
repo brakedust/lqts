@@ -51,7 +51,7 @@ setup(
     setup_requires=[
         "click",
         "requests",
-        "pydantic==0.25",
+        "pydantic",
         "fastapi",
         "ujson",
         "uvicorn",

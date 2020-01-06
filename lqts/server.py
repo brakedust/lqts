@@ -198,8 +198,10 @@ async def clear_queue(really: bool):
     Kills running jobs and totally erases the queue.
     """
     if really:
+        app.pool.pause()
         app.pool.kill_job(None, True)
-        app.queue.jobs.clear()
+        app.queue.clear()
+        app.pool.unpause()
         return "Killed running jobs and cleared queue"
     else:
         return "You must specify really=true to actually kill the jobs"

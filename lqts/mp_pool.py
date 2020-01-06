@@ -128,6 +128,8 @@ class DynamicProcessPool(cf.Executor):
 
         self.log = DummyLogger()
 
+        self._paused: bool = False
+
     def set_logger(self, logger):
 
         self.log = logger
@@ -181,7 +183,7 @@ class DynamicProcessPool(cf.Executor):
 
     submit.__doc__ = cf._base.Executor.submit.__doc__
 
-    def process_completions(self, timeout=1.0):
+    def process_completions(self, timeout=2.0):
         """
         Handles getting the results when a job is done and cleaning up
         worker processes that have finished.  It then calls feed_queue
@@ -211,7 +213,8 @@ class DynamicProcessPool(cf.Executor):
                     self._workers.pop(job_id)
 
         # make sure to feed the queue to keep work going
-        self.feed_queue()
+        if not self._paused:
+            self.feed_queue()
 
     def submit_one_job(self):
         """Start one job running in the pool"""
@@ -275,6 +278,12 @@ class DynamicProcessPool(cf.Executor):
                 time.sleep(self.feed_delay)
             else:
                 break
+
+    def pause(self):
+        self._paused = True
+
+    def unpause(self):
+        self._paused = False
 
     def kill_job(self, job_id_to_kill, kill_all=False):
         """

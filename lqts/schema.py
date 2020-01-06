@@ -535,6 +535,14 @@ class JobQueue(BaseModel):
 
         return deleted_job_ids
 
+    def clear(self):
+
+        for job_id in list(self.running_jobs.keys()):
+            job = self.running_jobs.pop(job_id)
+            job.status = JobStatus.Deleted
+            self.completed_jobs[job_id] = job
+        
+        
 
 class WorkItem(BaseModel):
 
