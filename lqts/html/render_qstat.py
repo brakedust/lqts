@@ -14,7 +14,7 @@ env = Environment(
     loader=PackageLoader("lqts", "html"), autoescape=select_autoescape(["html", "xml"])
 )
 
-STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "D": 4, "I": 5}
+STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "D": 4, "E":5, "I": 6}
 
 
 def render_qstat_table(jobs: List[Job], include_complete: bool = False):
