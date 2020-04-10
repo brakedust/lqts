@@ -90,7 +90,7 @@ class DynamicProcessPool(cf.Executor):
     It can send notifications of job starts and completions.
     """
 
-    def __init__(self, queue: JobQueue , max_workers=DEFAULT_WORKERS, feed_delay=0.05):
+    def __init__(self, queue: JobQueue, max_workers=DEFAULT_WORKERS, feed_delay=0.05):
 
         # self.server = server
         self.job_queue: JobQueue = queue
@@ -244,6 +244,7 @@ class DynamicProcessPool(cf.Executor):
             p = mp.Process(target=mp_worker_func, args=(self.q_input, self.q_output))
             p.start()
 
+            # ================================================
             # Start the processes nicely so we try to leave some resources
             # available on the host system
             p2 = psutil.Process(p.pid)
@@ -253,6 +254,20 @@ class DynamicProcessPool(cf.Executor):
             elif psutil.LINUX:
                 p2.nice(10)
                 p2.ionice(psutil.IOPRIO_CLASS_BE, value=5)
+            # ================================================
+
+            # ================================================
+            # set the cpu affinity for the job so it doesn't hop all over the place
+            # this MAY be helpful on large core systems
+            cpu = []
+            cpu_load = psutil.cpu_percent(percpu=True)
+            for i in range(job.job_spec.cores):
+                cpu_id = cpu_load.index(min(cpu_load))
+                cpu.append(cpu_id)
+                cpu_load[cpu_id] = 100.0
+
+            p2.cpu_affinity(cpu)
+            # ================================================
 
         with self.w_lock:
             self._workers[job.job_id] = (work_item, p)
