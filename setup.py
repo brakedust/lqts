@@ -2,6 +2,7 @@ from setuptools import setup, find_packages
 import os
 from os.path import join
 import sys
+import shutil
 
 python = None
 python_possibilites = [

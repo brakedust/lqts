@@ -49,7 +49,7 @@ def encode_path(p):
     help="A amount of time a job is allowed to run.  It will be killed after this amount [NOT IMPLEMENTED YET]",
 )
 @click.option(
-    "--cores", type=int, default=1, help="Number of cores/threads required by the job",
+    "--cores", type=int, default=1, help="Number of cores/threads required by the job"
 )
 @click.option("--port", default=config.port, help="The port number of the server")
 @click.option(
@@ -143,7 +143,7 @@ def qsub(
     help="Create a log file for each command submitted",
 )
 @click.option(
-    "--cores", type=int, default=1, help="Number of cores/threads required by the job",
+    "--cores", type=int, default=1, help="Number of cores/threads required by the job"
 )
 @click.option("--port", default=config.port, help="The port number of the server")
 @click.option(
@@ -244,7 +244,7 @@ def qsub_cmulti(
     help="Create a log file for each command submitted",
 )
 @click.option(
-    "--cores", type=int, default=1, help="Number of cores/threads required by the job",
+    "--cores", type=int, default=1, help="Number of cores/threads required by the job"
 )
 @click.option("--port", default=config.port, help="The port number of the server")
 @click.option(
@@ -336,7 +336,7 @@ def qsub_multi(
     help="Create a log file for each command submitted",
 )
 @click.option(
-    "--cores", type=int, default=1, help="Number of cores/threads required by the job",
+    "--cores", type=int, default=1, help="Number of cores/threads required by the job"
 )
 @click.option("--port", default=config.port, help="The port number of the server")
 @click.option(
@@ -467,7 +467,7 @@ def _qsub_argfile(
     help="A amount of time a job is allowed to run.  It will be killed after this amount [NOT IMPLEMENTED YET]",
 )
 @click.option(
-    "--cores", type=int, default=1, help="Number of cores/threads required by the job",
+    "--cores", type=int, default=1, help="Number of cores/threads required by the job"
 )
 @click.option("--port", default=config.port, help="The port number of the server")
 @click.option(
@@ -501,7 +501,7 @@ def qsub_test(
         for i in range(count):
             fid.write(f"argument {i}\n")
 
-    qsub_argfile(
+    _qsub_argfile(
         command="sleepy.bat",
         argfile="argfile.txt",
         log=log,
@@ -511,4 +511,3 @@ def qsub_test(
         cores=cores
         # walltime=walltime
     )
-
