@@ -1,6 +1,7 @@
 import os
 import time
 import sys
+
 # import chardet
 from pathlib import Path
 from string import digits
@@ -26,12 +27,23 @@ if Path(".env").exists():
 else:
     config = Configuration()
 
+
 @click.command("qwait")
 @click.argument("job_ids", nargs=-1)
-@click.option("--interval", "-i", type=float, default=5, help='How often to poll the server to check on progress')
+@click.option(
+    "--interval",
+    "-i",
+    type=float,
+    default=5,
+    help="How often to poll the server to check on progress",
+)
 @click.option("--port", default=config.port, help="The port number of the server")
-@click.option("--ip_address", default=config.ip_address, help="The IP address of the server")
-def qwait(job_ids=None, interval=5, port=config.port, ip_address=config.ip_address, verbose=0):
+@click.option(
+    "--ip_address", default=config.ip_address, help="The IP address of the server"
+)
+def qwait(
+    job_ids=None, interval=5, port=config.port, ip_address=config.ip_address, verbose=0
+):
     """Blocks until the specified jobs have completed"""
 
     if not job_ids and sys.stdin.seekable():
@@ -49,9 +61,7 @@ def qwait(job_ids=None, interval=5, port=config.port, ip_address=config.ip_addre
     for job_id in list(input_job_ids):
         if "." not in job_id:
             # A job group was specified
-            response = requests.get(
-                f"{config.url}/jobgroup?group_number={int(job_id)}"
-            )
+            response = requests.get(f"{config.url}/jobgroup?group_number={int(job_id)}")
             # print(response.json())
             if response.status_code == 200:
                 job_ids.extend([JobID(**item) for item in response.json()])
@@ -68,9 +78,7 @@ def qwait(job_ids=None, interval=5, port=config.port, ip_address=config.ip_addre
     while not done_waiting:
         options = {"completed": False}
 
-        response = requests.get(
-            f"{config.url}/qstat", json=options
-        )  # , json=message)
+        response = requests.get(f"{config.url}/qstat", json=options)  # , json=message)
 
         queued_or_running_job_ids = set(
             Job(**ujson.loads(item)).job_id for item in response.json()
@@ -85,7 +93,7 @@ def qwait(job_ids=None, interval=5, port=config.port, ip_address=config.ip_addre
                 if len(waiting_on) <= 20:
                     msg = str(waiting_on)
                 else:
-                    lsw = list(sorted(waiting_on))
+                    lsw = list(str(job) for job in sorted(waiting_on))
                     msg = f"{len(waiting_on)} jobs: {lsw[0]} - {lsw[-1]}"
                     del lsw
                 print(f"Waiting on {msg}")
