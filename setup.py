@@ -20,8 +20,9 @@ if python is None:
     print(f"Could not locate python in {sys.prefix}")
     sys.exit(1)
 
-
+print("Making new version .py file")
 os.system(f"{python} version_maker.py")
+shutil.copy("version.py", "lqts/version.py")
 try:
     from version import VERSION
 except ImportError:

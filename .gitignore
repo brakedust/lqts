@@ -105,3 +105,7 @@ venv.bak/
 
 .vscode
 version.py
+tests/data/boo.txt
+lqts/lqts-workspace.code-workspace
+dummylog.txt
+tests/data/log.txt
