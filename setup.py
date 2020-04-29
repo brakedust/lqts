@@ -22,8 +22,12 @@ if python is None:
 
 
 os.system(f"{python} version_maker.py")
-
-from version import VERSION
+try:
+    from version import VERSION
+except ImportError:
+    with open("version.py") as fid:
+        line = fid.readline()
+        VERSION = line.split()[-1].strip('"')
 
 packages = find_packages()
 
@@ -45,7 +49,7 @@ setup(
             "qworkers = lqts.commands.qworkers:qworkers",
             "qwait = lqts.commands.qwait:qwait",
             "qsummary = lqts.commands.qsummary:qsummary",
-            "qpriority = lqts.commands.qpriority:qpriority"
+            "qpriority = lqts.commands.qpriority:qpriority",
         ]
     },
     setup_requires=[
@@ -60,4 +64,3 @@ setup(
         "tqdm",
     ],
 )
-

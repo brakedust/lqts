@@ -17,9 +17,7 @@ class Configuration(BaseModel):
     ip_address: str = os.environ.get("LQTS_IP_ADDRESS", "127.0.0.1")
     port: int = int(os.environ.get("LQTS_PORT", "9200"))
     log_file: str = os.environ.get("LQTS_LOG_FILE", join(expanduser("~"), "lqts.log"))
-    config_file: str = os.environ.get(
-        "LQTS_CONFIG_FILE", ""
-    )
+    config_file: str = os.environ.get("LQTS_CONFIG_FILE", "")
     queue_file: str = os.environ.get(
         "LQTS_QUEUE_FILE", join(expanduser("~"), "lqts.queue.txt")
     )
@@ -30,7 +28,7 @@ class Configuration(BaseModel):
     completed_limit: int = int(os.environ.get("LQTS_COMPLETED_LIMIT", 1000))
 
     resume_on_start_up: bool = parse_bool(
-        os.environ.get("LQTS_RESUME_ON_START_UP", True)
+        os.environ.get("LQTS_RESUME_ON_START_UP", False)
     )
 
     @property
