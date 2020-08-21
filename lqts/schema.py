@@ -7,6 +7,7 @@ from os.path import expanduser, join
 from queue import PriorityQueue
 from typing import Any, Deque, Dict, List, Union
 from uuid import uuid4
+
 # import logging
 
 from pydantic import BaseModel
@@ -100,6 +101,7 @@ class JobSpec(BaseModel):
     log_file: str = None
     priority: int = 10
     cores: int = 1  # number of cores required by the job
+    alternate_runner: bool = False
     depends: List[JobID] = None
     walltime: timedelta = None
 
@@ -328,7 +330,7 @@ class JobQueue(BaseModel):
         for job in sorted(self.queued_jobs.values()):
             return job
 
-    def on_job_started(self, started_job:Job):
+    def on_job_started(self, started_job: Job):
         """
         Call this when a job is about to start
         """
@@ -356,7 +358,6 @@ class JobQueue(BaseModel):
             pass
 
         self.on_queue_change()
-
 
     def check_can_job_run(self, job_id: JobID) -> bool:
         """
@@ -541,8 +542,7 @@ class JobQueue(BaseModel):
             job = self.running_jobs.pop(job_id)
             job.status = JobStatus.Deleted
             self.completed_jobs[job_id] = job
-        
-        
+
 
 class WorkItem(BaseModel):
 

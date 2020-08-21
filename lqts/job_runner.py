@@ -91,20 +91,35 @@ Started: {}
 
     # print(command)
     try:
-        p = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
-        )
-        line = get_output(p)
-        fid.write(line)
-        while line:
+
+        if not job.job_spec.alternate_runner:
+            # With this approach (default) the log file is updated incrementally
+            p = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
+            )
             line = get_output(p)
             fid.write(line)
-        serr = get_output(p, stderr=True)
-        sys.stderr.write(serr)
+            while line:
+                line = get_output(p)
+                fid.write(line)
+            serr = get_output(p, stderr=True)
+
+        else:
+            # With this approach the log file is updated at the end, but this fixes
+            # rare problems with executables hanging
+            p = subprocess.run(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
+            )
+            fid.write(p.stdout.decode())
+            serr = p.stderr.decode()
+
         fid.write(
             "\n-----------------------------------------------\nSTDERR\n-----------------------------------------------\n"
         )
         fid.write(serr)
+        if not job.job_spec.log_file:
+            sys.stderr.write(serr)
+
         job.status = JobStatus.Completed
     except FileNotFoundError:
         fid.write(

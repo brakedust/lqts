@@ -55,6 +55,17 @@ def encode_path(p):
 @click.option(
     "--ip_address", default=config.ip_address, help="The IP address of the server"
 )
+@click.option(
+    "--alternate-runner",
+    "-a",
+    is_flag=True,
+    default=False,
+    help=(
+        "Runs the submitted command in a slightly different manner.  "
+        "In rare cases an executable can start, then hang.  "
+        "However, the log file isn't updated until the process terminates."
+    ),
+)
 def qsub(
     command,
     args,
@@ -67,6 +78,7 @@ def qsub(
     cores=1,
     port=config.port,
     ip_address=config.ip_address,
+    alternate_runner=False,
 ):
     """Submits one job to the queue"""
 
@@ -101,6 +113,7 @@ def qsub(
         depends=depends,
         walltime=walltime,
         cores=cores,
+        alternate_runner=alternate_runner,
     )
 
     config.port = port
@@ -149,6 +162,17 @@ def qsub(
 @click.option(
     "--ip_address", default=config.ip_address, help="The IP address of the server"
 )
+@click.option(
+    "--alternate-runner",
+    "-a",
+    is_flag=True,
+    default=False,
+    help=(
+        "Runs the submitted command in a slightly different manner.  "
+        "In rare cases an executable can start, then hang.  "
+        "However, the log file isn't updated until the process terminates."
+    ),
+)
 def qsub_cmulti(
     command,
     file_pattern,
@@ -161,6 +185,7 @@ def qsub_cmulti(
     cores=1,
     port=config.port,
     ip_address=config.ip_address,
+    alternate_runner=False,
 ):
     """
     Submits mutlitiple jobs to the queue.
@@ -199,6 +224,7 @@ def qsub_cmulti(
             priority=priority,
             depends=depends,
             cores=cores,
+            alternate_runner=alternate_runner,
         )
         job_specs.append(js.dict())
 
@@ -250,6 +276,17 @@ def qsub_cmulti(
 @click.option(
     "--ip_address", default=config.ip_address, help="The IP address of the server"
 )
+@click.option(
+    "--alternate-runner",
+    "-a",
+    is_flag=True,
+    default=False,
+    help=(
+        "Runs the submitted command in a slightly different manner.  "
+        "In rare cases an executable can start, then hang.  "
+        "However, the log file isn't updated until the process terminates."
+    ),
+)
 def qsub_multi(
     commands,
     args,
@@ -261,6 +298,7 @@ def qsub_multi(
     cores=1,
     port=config.port,
     ip_address=config.ip_address,
+    alternate_runner=False,
 ):
     """
     Submits mutilple jobs to the queue.
@@ -296,6 +334,7 @@ def qsub_multi(
             priority=priority,
             depends=depends,
             cores=cores,
+            alternate_runner=alternate_runner,
         )
         job_specs.append(js.dict())
 
@@ -342,6 +381,17 @@ def qsub_multi(
 @click.option(
     "--ip_address", default=config.ip_address, help="The IP address of the server"
 )
+@click.option(
+    "--alternate-runner",
+    "-a",
+    is_flag=True,
+    default=False,
+    help=(
+        "Runs the submitted command in a slightly different manner.  "
+        "In rare cases an executable can start, then hang.  "
+        "However, the log file isn't updated until the process terminates."
+    ),
+)
 def qsub_argfile(
     command,
     argfile,
@@ -353,6 +403,7 @@ def qsub_argfile(
     cores=1,
     port=config.port,
     ip_address=config.ip_address,
+    alternate_runner=False,
 ):
     """Submits multiple jobs to the queue.
 
@@ -370,6 +421,7 @@ def qsub_argfile(
         cores,
         port,
         ip_address,
+        alternate_runner,
     )
 
 
@@ -384,6 +436,7 @@ def _qsub_argfile(
     cores=1,
     port=config.port,
     ip_address=config.ip_address,
+    alternate_runner=False,
 ):
 
     from glob import glob
@@ -414,6 +467,7 @@ def _qsub_argfile(
                 priority=priority,
                 depends=depends,
                 cores=cores,
+                alternate_runner=alternate_runner,
             )
             job_specs.append(js.dict())
 
@@ -473,6 +527,17 @@ def _qsub_argfile(
 @click.option(
     "--ip_address", default=config.ip_address, help="The IP address of the server"
 )
+@click.option(
+    "--alternate-runner",
+    "-a",
+    is_flag=True,
+    default=False,
+    help=(
+        "Runs the submitted command in a slightly different manner.  "
+        "In rare cases an executable can start, then hang.  "
+        "However, the log file isn't updated until the process terminates."
+    ),
+)
 def qsub_test(
     duration,
     count,
@@ -485,6 +550,7 @@ def qsub_test(
     cores=1,
     port=config.port,
     ip_address=config.ip_address,
+    alternate_runner=False,
 ):
     """Easily submit some test jobs to the queue for testing and experimenting. This command
     writes a batch file 'sleepy.bat' and 'argfile.txt'.  It then uses qsub-argfile to submit
@@ -508,6 +574,9 @@ def qsub_test(
         priority=priority,
         depends=depends,
         debug=debug,
-        cores=cores
-        # walltime=walltime
+        cores=cores,
+        port=port,
+        ip_address=ip_address,
+        alternate_runner=alternate_runner,
+        walltime=walltime,
     )
