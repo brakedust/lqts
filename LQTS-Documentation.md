@@ -4,9 +4,12 @@
 
 # 1. Introduction
 
-LQTS is a Lightweight Job Queueing system.  It is meant to manage the
+LQTS (pronounced Locutus) is a lightweight job queueing system.  Its purpose is to manage the
 execution of a large number of computational jobs, only exeucuting a fixed
-amount of them concurrently.  The major ideas involved in this are:
+amount of them concurrently.  LQTS is intended to be very easy to run.
+There is no setup required, but some options may be controlled through environment variables or a .env file.
+
+The major concepts involved in this are:
 
     * Job Queue - a list of jobs to be executed
     * Job Submission - putting a job in the queue
@@ -16,12 +19,12 @@ amount of them concurrently.  The major ideas involved in this are:
 
 # 2. Starting the Job Server
 
-The job server is started simply by:
+LQST is a client/server app.  The server runs on localhost (IP address is 127.0.0.1) and port 9200.  The server has process pool and a queue that it uses to manage jobs that are submitted to it.  The server is started using the qstart.exe program.
 
 ```
 $ qstart.exe
 ```
-The server should display
+On start up the server should display
 
 ```
 Starting up LoQuTuS server - 1.0.8+5bc479c
@@ -38,19 +41,25 @@ number of  workers desired.
 
 Ther server has several settings that can be adjusted by setting environment variables
 or by starting the server in a directory where a file name `.env` is
-present.  The available settings are:
+present.  Unless you have a specific requirement, it is not recommended to change these from their defaults.  The available settings are:
 
-    * LQTS_PORT - The port the server is bound to (change if you want to
-      run mulitple instances)
-    * LQTS_NWORKERS - Maximum number of workers/concurrent jobs
-    * LQTS_COMPLETED_LIMIT - Number of completed jobs the server "remembers"
-    * LQTS_RESUME_ON_START_UP - Whether or not to attempt to resume the job queue
-      based on the contents of the LQTS_QUEUE_FILE
+* LQTS_PORT - The port the server is bound to (change if you want to run mulitple instances)
+* LQTS_NWORKERS - Maximum number of workers/concurrent jobs
+* LQTS_COMPLETED_LIMIT - Number of completed jobs the server "remembers" (i.e. that would show up in qstat)
+* LQTS_RESUME_ON_START_UP - Whether or not to attempt to resume the job queue
+  based on the contents of the LQTS_QUEUE_FILE (It is recommended not to set this to true currently, as it can be flakey.)
+* LQTS_QUEUE_FILE – location of the file where LQTS writes its current queue every few minutes
+
 
 # 4. Job Submission
 
 Several commands are available for different use cases to submit jobs to the queue.
 Each qsub command returns the job ID for the submitted job(s).
+
+* qsub - submit one job
+* qsub-multi - submit multiple commands to the queue
+* qsub-cmulti - submit mutliple jobs to the queue, where the command is the same but the input files are different
+* qsub-argfile - submit mutliple jobs to the queue, where each job is defined by a line if the given file
 
 ## qsub
 
@@ -59,7 +68,36 @@ The `qsub` command submits one job to the queue.
 Example:
 
 `
-$ qsub myprogram.exe
+qsub --help
+Usage: qsub [OPTIONS] COMMAND [ARGS]...
+
+  Submits one job to the queue
+
+Options:
+  --priority INTEGER      [default: 1]
+  --logfile TEXT          Name of log file  [default: ]
+  --log                   Create a log file based on the command name
+                          [default: False]
+
+  -d, --depends LIST      Specify one or more jobs that these batch of jobs
+                          depend on. They will be held until those jobs
+                          complete  [default: <class 'list'>]
+
+  --debug                 Produce debug output  [default: False]
+  --walltime TEXT         A amount of time a job is allowed to run.  It will
+                          be killed after this amount [NOT IMPLEMENTED YET]
+
+  --cores INTEGER         Number of cores/threads required by the job
+                          [default: 1]
+
+  --port INTEGER          The port number of the server  [default: 9200]
+  --ip_address TEXT       The IP address of the server  [default: 127.0.0.1]
+  -a, --alternate-runner  Runs the submitted command in a slightly different
+                          manner.  In rare cases an executable can start, then
+                          hang.  However, the log file isn't updated until the
+                          process terminates.  [default: False]
+
+  --help                  Show this message and exit.
 `
 
 ## qsub-cmulti

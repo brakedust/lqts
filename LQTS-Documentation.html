@@ -1,34 +1,49 @@
 <h1 id="lqts-documentation">LQTS Documentation</h1>
 <p><em>Brad Campbell | NSWCCD Code 851</em> | 29 April 2020</p>
 <h1 id="introduction">1. Introduction</h1>
-<p>LQTS is a Lightweight Job Queueing system. It is meant to manage the execution of a large number of computational jobs, only exeucuting a fixed amount of them concurrently. The major ideas involved in this are:</p>
+<p>LQTS (pronounced Locutus) is a lightweight job queueing system. Its purpose is to manage the execution of a large number of computational jobs, only exeucuting a fixed amount of them concurrently. LQTS is intended to be very easy to run. There is no setup required, but some options may be controlled through environment variables or a .env file.</p>
+<p>The major concepts involved in this are:</p>
 <pre><code>* Job Queue - a list of jobs to be executed
 * Job Submission - putting a job in the queue
 * Job Server - the process that gets submissions, manages the queue,
   and executes the jobs
 * Worker - a child process of the server that executes the job</code></pre>
 <h1 id="starting-the-job-server">2. Starting the Job Server</h1>
-<p>The job server is started simply by:</p>
+<p>LQST is a client/server app. The server runs on localhost (IP address is 127.0.0.1) and port 9200. The server has process pool and a queue that it uses to manage jobs that are submitted to it. The server is started using the qstart.exe program.</p>
 <pre><code>$ qstart.exe</code></pre>
-<p>The server should display</p>
+<p>On start up the server should display</p>
 <pre><code>Starting up LoQuTuS server - 1.0.8+5bc479c
 Worker pool started with 32 workers
 Visit http://127.0.0.1:9200/qstatus to view the queue status</code></pre>
 <p>By default there are (# CPUs - 2) workers avaialable. This can be queried by calling <code>qworkers.exe</code> with no arguments. The number of workers can be dynamically adjusted by calling <code>qworkers.exe</code> with one argument that is the number of workers desired.</p>
 <h1 id="server-configuration">3. Server Configuration</h1>
-<p>Ther server has several settings that can be adjusted by setting environment variables or by starting the server in a directory where a file name <code>.env</code> is present. The available settings are:</p>
-<pre><code>* LQTS_PORT - The port the server is bound to (change if you want to
-  run mulitple instances)
-* LQTS_NWORKERS - Maximum number of workers/concurrent jobs
-* LQTS_COMPLETED_LIMIT - Number of completed jobs the server &quot;remembers&quot;
-* LQTS_RESUME_ON_START_UP - Whether or not to attempt to resume the job queue
-  based on the contents of the LQTS_QUEUE_FILE</code></pre>
+<p>Ther server has several settings that can be adjusted by setting environment variables or by starting the server in a directory where a file name <code>.env</code> is present. Unless you have a specific requirement, it is not recommended to change these from their defaults. The available settings are:</p>
+<ul>
+<li>LQTS_PORT - The port the server is bound to (change if you want to run mulitple instances)</li>
+<li>LQTS_NWORKERS - Maximum number of workers/concurrent jobs</li>
+<li>LQTS_COMPLETED_LIMIT - Number of completed jobs the server “remembers” (i.e. that would show up in qstat)</li>
+<li>LQTS_RESUME_ON_START_UP - Whether or not to attempt to resume the job queue based on the contents of the LQTS_QUEUE_FILE (It is recommended not to set this to true currently, as it can be flakey.)</li>
+<li>LQTS_QUEUE_FILE – location of the file where LQTS writes its current queue every few minutes</li>
+</ul>
 <h1 id="job-submission">4. Job Submission</h1>
 <p>Several commands are available for different use cases to submit jobs to the queue. Each qsub command returns the job ID for the submitted job(s).</p>
+<ul>
+<li>qsub - submit one job</li>
+<li>qsub-multi - submit multiple commands to the queue</li>
+<li>qsub-cmulti - submit mutliple jobs to the queue, where the command is the same but the input files are different</li>
+<li>qsub-argfile - submit mutliple jobs to the queue, where each job is defined by a line if the given file</li>
+</ul>
 <h2 id="qsub">qsub</h2>
 <p>The <code>qsub</code> command submits one job to the queue.</p>
 <p>Example:</p>
-<p><code>$ qsub myprogram.exe</code></p>
+<p>` qsub –help Usage: qsub [OPTIONS] COMMAND [ARGS]…</p>
+<p>Submits one job to the queue</p>
+<p>Options: –priority INTEGER [default: 1] –logfile TEXT Name of log file [default: ] –log Create a log file based on the command name [default: False]</p>
+<p>-d, –depends LIST Specify one or more jobs that these batch of jobs depend on. They will be held until those jobs complete [default: &lt;class ‘list’&gt;]</p>
+<p>–debug Produce debug output [default: False] –walltime TEXT A amount of time a job is allowed to run. It will be killed after this amount [NOT IMPLEMENTED YET]</p>
+<p>–cores INTEGER Number of cores/threads required by the job [default: 1]</p>
+<p>–port INTEGER The port number of the server [default: 9200] –ip_address TEXT The IP address of the server [default: 127.0.0.1] -a, –alternate-runner Runs the submitted command in a slightly different manner. In rare cases an executable can start, then hang. However, the log file isn’t updated until the process terminates. [default: False]</p>
+<p>–help Show this message and exit. `</p>
 <h2 id="qsub-cmulti">qsub-cmulti</h2>
 <p>The <code>qsub-cmulti</code> command submits multiple jobs. This command is used you have one command with multiple input files, each of which is a different job. You should be able to reference your input files with a glob pattern (such as "*.inp")</p>
 <p>Example:</p>

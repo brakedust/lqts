@@ -37,7 +37,7 @@ class Application(FastAPI):
             name="default_queue",
             queue_file=self.config.queue_file,
             completed_limit=self.config.completed_limit,
-            config=self.config
+            config=self.config,
         )
 
         self.queue._start_manager_thread()
@@ -96,6 +96,7 @@ class Application(FastAPI):
     #     self.log.info(
     #         f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
     #     )
+
 
 app = Application()
 app.debug = True
@@ -177,7 +178,7 @@ async def get_workers():
 
 
 @app.post("/workers")
-async def set_workers(count: int=4):
+async def set_workers(count: int = 4):
     """
     Sets the number of worker processes to execute jobs.
     """
@@ -231,6 +232,7 @@ async def qpriority(priority: int, job_ids: List[JobID]):
             job.job_spec.priority = priority
         except:
             import traceback
+
             traceback.print_exc()
 
 
