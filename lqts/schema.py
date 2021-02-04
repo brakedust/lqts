@@ -340,7 +340,10 @@ class JobQueue(BaseModel):
         self.running_jobs[job.job_id] = job
         self.on_queue_change()
 
-        self.log.info(f">>> Started     job {job.job_id} at {job.started.isoformat()}")
+        if self.log is not None:
+            self.log.info(
+                f">>> Started     job {job.job_id} at {job.started.isoformat()}"
+            )
 
     def on_job_finished(self, completed_job: Job):
         """
@@ -351,9 +354,10 @@ class JobQueue(BaseModel):
             job.status = completed_job.status
             job.completed = completed_job.completed
             self.completed_jobs[job.job_id] = job
-            self.log.info(
-                f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
-            )
+            if self.log is not None:
+                self.log.info(
+                    f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
+                )
         except KeyError:
             pass
 
@@ -549,4 +553,3 @@ class WorkItem(BaseModel):
     job: Job
     future: Any
     fn: Any
-

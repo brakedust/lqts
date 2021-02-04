@@ -11,7 +11,7 @@ from starlette.responses import RedirectResponse
 import ujson
 
 from lqts.schema import Job, JobQueue, JobSpec, JobStatus, JobID
-from lqts.mp_pool import DynamicProcessPool, Event, DEFAULT_WORKERS
+from lqts.mp_pool2 import DynamicProcessPool, Event, DEFAULT_WORKERS
 from lqts.job_runner import run_command
 from lqts.config import Configuration
 from lqts.version import VERSION
@@ -67,8 +67,9 @@ class Application(FastAPI):
 
         # self.pool = cf.ProcessPoolExecutor(max_workers=nworkers)
         self.pool = DynamicProcessPool(
-            queue=self.queue, max_workers=nworkers, feed_delay=0.05
+            queue=self.queue, max_workers=nworkers, feed_delay=0.05, manager_delay=2.0
         )
+        self.pool._start_manager_thread()
         # self.pool.add_event_callback(self.receive_pool_events)
         self.log.info("Worker pool started with {} workers".format(nworkers))
 
@@ -172,19 +173,19 @@ async def get_workers():
     Gets the number of worker processes to execute jobs.
     """
     app.log.info(
-        "Number of workers queried by user. Returned {}".format(app.pool._max_workers)
+        "Number of workers queried by user. Returned {}".format(app.pool.max_workers)
     )
-    return app.pool._max_workers
+    return app.pool.max_workers
 
 
 @app.post("/workers")
-async def set_workers(count: int = 4):
+async def set_workers(count: int):
     """
     Sets the number of worker processes to execute jobs.
     """
     app.log.info("Setting maximum number of workers to {}".format(count))
     app.pool.resize(count)
-    return app.pool._max_workers
+    return app.pool.max_workers
 
 
 @app.get("/jobgroup")
@@ -217,7 +218,7 @@ async def qdel(job_ids: List[JobID]):
     deleted_jobs = app.queue.qdel(job_ids)
 
     for job_id in deleted_jobs:
-        if job_id in app.pool._workers:
+        if job_id in app.pool._work_items:
             app.pool.kill_job(job_id)
 
     return {"Deleted jobs": deleted_jobs}

@@ -46,6 +46,9 @@ def qwait(
 ):
     """Blocks until the specified jobs have completed"""
 
+    config.ip_address = ip_address
+    config.port = port
+
     if not job_ids and sys.stdin.seekable():
         # get the job ids from standard input
         job_id_string = "".join(c for c in sys.stdin.read() if c in digits)

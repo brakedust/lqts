@@ -31,13 +31,15 @@ def qworkers(count, debug=False, port=config.port, ip_address=config.ip_address)
 
     if count:
         count = int(count)
-        response = requests.post(
-            "{}/workers?count={}".format(config.url, count)
-        )
+        response = requests.post("{}/workers?count={}".format(config.url, count))
         print("Worker pool resized to {} workers".format(int(response.text)))
     else:
-        response = requests.get("{}/workers".format(config.url))
-        print("Worker pool size is {}".format(int(response.text)))
+        response = ""
+        try:
+            response = requests.get("{}/workers".format(config.url))
+            print("Worker pool size is {}".format(int(response.text)))
+        except:
+            print(response)
 
 
 if __name__ == "__main__":

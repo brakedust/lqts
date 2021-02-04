@@ -14,7 +14,7 @@ env = Environment(
     loader=PackageLoader("lqts", "html"), autoescape=select_autoescape(["html", "xml"])
 )
 
-STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "D": 4, "E":5, "I": 6}
+STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "D": 4, "E": 5, "I": 6}
 
 
 def render_qstat_table(jobs: List[Job], include_complete: bool = False):
@@ -40,7 +40,7 @@ def render_qstat_page(include_complete: bool = False):
 
     page_template = env.get_template("page_template.jinja")
     buttonbar = env.get_template("button_bar.jinja").render(
-        workercount=app.pool._max_workers
+        workercount=app.pool.max_workers
     )
     script_block = env.get_template("js_script_template.jinja").render()
 
@@ -71,4 +71,3 @@ if __name__ == "__main__":
     )
 
     print(render_qstat_page(jobs=[job]))
-

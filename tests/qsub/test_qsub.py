@@ -1,9 +1,11 @@
+import pytest
 import os
-import sys
+
+# import sys
 import platform
 
-from starlette.testclient import TestClient
-import ujson
+# from starlette.testclient import TestClient
+# import ujson
 
 from lqts.server import app
 from lqts.commands.qsub import qsub
@@ -11,7 +13,7 @@ from lqts.schema import Job, JobSpec, JobID, JobQueue
 
 from tests.data import data_path
 
-from unittest import mock
+# from unittest import mock
 
 
 def log_info(text):
@@ -37,11 +39,12 @@ def test_is_queued():
         depends=[],
     )
 
-    job_id = q.submitted([job_spec])
+    job_id = q.submit([job_spec])[0]
+    # job_id = q.submitted([job_spec])
     # response = client.post("qsub", json=[job_spec.dict()])
 
-    assert job_id == JobID.parse_raw("1.0")
-    job = q.find_job(job_id)
+    assert job_id == JobID.parse_obj("1.0")
+    job = q.find_job(job_id)[0]
 
     assert job.job_spec.command == job_spec.command
 

@@ -26,6 +26,8 @@ import psutil
 
 from .schema import JobID, Job, JobStatus, JobQueue
 from lqts.job_runner import run_command
+from lqts.resources import CPUResourceManager, CPUResponse
+
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
 
@@ -39,6 +41,10 @@ class _WorkItem(BaseModel):
     # kwargs: Dict = {}
     start_time: datetime = None
     stop_time: datetime = None
+
+    mark = 0
+
+    cores = []
 
     # @validator("future")
     # def allow_anything(cls, v):
@@ -90,15 +96,17 @@ class DynamicProcessPool(cf.Executor):
     It can send notifications of job starts and completions.
     """
 
-    def __init__(self, queue: JobQueue, max_workers=DEFAULT_WORKERS, feed_delay=0.05):
+    def __init__(self, queue: JobQueue, max_workers=DEFAULT_WORKERS, feed_delay=0.1):
 
         # self.server = server
         self.job_queue: JobQueue = queue
 
-        if max_workers is not None:
-            if max_workers <= 0:
-                raise ValueError("max_workers must be greater than 0")
-            self._max_workers = max_workers
+        # max_works = max(max_workers, 1)
+        self.CPUManager = CPUResourceManager(max(max_workers, 1))
+        # if max_workers is not None:
+        #     if max_workers <= 0:
+        #         raise ValueError("max_workers must be greater than 0")
+        #     self._max_workers = max_workers
 
         self.feed_delay = feed_delay
 
@@ -130,6 +138,14 @@ class DynamicProcessPool(cf.Executor):
 
         self._paused: bool = False
 
+    @property
+    def max_workers(self):
+        return self.CPUManager.cpu_count
+
+    @max_workers.setter
+    def max_workers(self, value):
+        self.resize(value)
+
     def set_logger(self, logger):
 
         self.log = logger
@@ -143,13 +159,13 @@ class DynamicProcessPool(cf.Executor):
         max_workers: int
             Maximum number of workers
         """
-
+        more_capacity = max_workers > self.max_workers
         if max_workers is not None:
-            if max_workers <= 0:
-                raise ValueError("max_workers must be greater than 0")
-            self._max_workers = max_workers
 
-            self.feed_queue()
+            self.CPUManager.resize(max_workers)
+
+            if more_capacity:
+                self.feed_queue()
 
     def submit(self, func: Callable, job: Job):
 
@@ -202,33 +218,43 @@ class DynamicProcessPool(cf.Executor):
             # print(job)
             self.log.info("Got result {} = {}".format(job.job_id, job))
             self.job_queue.on_job_finished(job)
-
+            work_item, p = self._workers[job.job_id]
+            self.CPUManager.free_processors(work_item.cores)
+            p.terminate()
+            with self.w_lock:
+                self._workers.pop(job.job_id)
         except queue.Empty:
             pass
-
+        print(psutil.Process().pid)
         # Remove any processes that are complete
         for job_id, (work_item, p) in tuple(self._workers.items()):
-            if not p.is_alive():
-                with self.w_lock:
-                    self._workers.pop(job_id)
+            if len(psutil.Process(p.pid).children()) == 0:
+
+                if work_item.mark > 1:
+                    p.terminate()
+                    with self.w_lock:
+                        self._workers.pop(job_id)
+                else:
+                    work_item.mark += 1
 
         # make sure to feed the queue to keep work going
         if not self._paused:
             self.feed_queue()
 
-    def submit_one_job(self):
+    def submit_one_job(self, job: Job, cores: list):
         """Start one job running in the pool"""
         future = cf.Future()
 
         # job = None
-        job = self.job_queue.next_job()
+        # if job is None:
+        #     job = self.job_queue.next_job()
 
-        if job is None:
-            return False, None
+        # if job is None:
+        #     return False, None
 
         future = cf.Future()
 
-        work_item = _WorkItem(job=job, future=future, fn=run_command)
+        work_item = _WorkItem(job=job, future=future, fn=run_command, cores=cores)
 
         with self.q_lock:
             # self.server.log.info(f"<-> Started     job {job.job_id} at {datetime.now().isoformat()}")
@@ -258,15 +284,19 @@ class DynamicProcessPool(cf.Executor):
 
             # ================================================
             # set the cpu affinity for the job so it doesn't hop all over the place
-            # this MAY be helpful on large core systems
-            cpu = []
-            cpu_load = psutil.cpu_percent(percpu=True)
-            for i in range(job.job_spec.cores):
-                cpu_id = cpu_load.index(min(cpu_load))
-                cpu.append(cpu_id)
-                cpu_load[cpu_id] = 100.0
+            # this is QUITE be helpful on large core systems
+            # if cores is None:
+            #     some_available, cores = self.CPUManager.get_processors(count=job.job_spec.cores)
 
-            p2.cpu_affinity(cpu)
+            p2.cpu_affinity(cores)
+            # cpu = []
+            # cpu_load = psutil.cpu_percent(percpu=True)
+            # for i in range(job.job_spec.cores):
+            #     cpu_id = cpu_load.index(min(cpu_load))
+            #     cpu.append(cpu_id)
+            #     cpu_load[cpu_id] = 100.0
+
+            # p2.cpu_affinity(cpu)
             # ================================================
 
         with self.w_lock:
@@ -280,14 +310,27 @@ class DynamicProcessPool(cf.Executor):
         available.
         """
         # log.debug('feeding q {}'.format(len(self._workers)))
-        i = 1
+        # i = 1
         # while (len(self._workers) < self._max_workers) and (
-        while (self.job_queue.running_count() < self._max_workers) and (
-            len(self.job_queue.queued_jobs) > 0
-        ):
+        # while (self.job_queue.running_count() < self._max_workers) and (
+        #     len(self.job_queue.queued_jobs) > 0
+        # ):
 
+        while len(self.job_queue.queued_jobs) > 0:
+
+            job = self.job_queue.next_job()
+
+            if job is None:
+                break
+
+            some_available, cores = self.CPUManager.get_processors(
+                count=job.job_spec.cores
+            )
+
+            if not some_available:
+                break
             # while there is work to do and workers available, start up new jobs
-            job_was_submitted, job = self.submit_one_job()
+            job_was_submitted, job = self.submit_one_job(job, cores)
 
             if job_was_submitted:
                 time.sleep(self.feed_delay)
@@ -327,6 +370,7 @@ class DynamicProcessPool(cf.Executor):
                     work_item.future._state = cf._base.CANCELLED
                     self._workers.pop(job_id)
                     self._results.pop(job_id)
+                    self.CPUManager.free_processors(work_item.cores)
                     return True
 
         for work_item in self._queue:

@@ -69,11 +69,11 @@ Example:
 
 `
 qsub --help
-Usage: qsub [OPTIONS] COMMAND [ARGS]...
+Usage: qsub COMMAND [qsub ARGS] -- [COMMAND ARGS]
 
   Submits one job to the queue
 
-Options:
+qsub ARGS:
   --priority INTEGER      [default: 1]
   --logfile TEXT          Name of log file  [default: ]
   --log                   Create a log file based on the command name
@@ -111,6 +111,48 @@ Example:
 ```
 $ qsub-cmulti myprogram.exe *.inp
 ```
+
+Example2:
+
+```
+$ qsub-cmulti myprogram.exe *.in -- -arg1 --arg2 Arg2Value
+```
+
+### Full Command Help
+
+```
+Usage: qsub-cmulti COMMAND FILE_PATTERN [qsub-cmulti ARGS] -- [COMMAND args]
+
+  Submits mutlitiple jobs to the queue.
+
+  Runs **command** for each file in **files**.  Pass in args.
+
+  $ qsub mycommand.exe MyInputFile*.inp  -d 2 --log -- --do --it
+         [-----------] [--------------]  [--------]    [----------]
+           command        filepattern    qsub ARGS     command args
+
+Options:
+  --priority INTEGER      [default: 1]
+  -d, --depends TEXT      Specify one or more jobs that this batch of jobs
+                          depends on. They will be held until those jobs
+                          complete  [default: <class 'list'>]
+
+  --debug                 [default: False]
+  --log                   Create a log file for each command submitted
+                          [default: False]
+
+  --cores INTEGER         Number of cores/threads required by the job
+                          [default: 1]
+
+  --port INTEGER          The port number of the server  [default: 9200]
+  --ip_address TEXT       The IP address of the server  [default: 127.0.0.1]
+  -a, --alternate-runner  Runs the submitted command in a slightly different
+                          manner.  In rare cases an executable can start, then
+                          hang.  However, the log file isn't updated until the
+                          process terminates.  [default: False]
+
+  --help                  Show this message and exit.
+  ```
 
 ## qsub-multi
 

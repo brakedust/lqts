@@ -437,6 +437,7 @@ def _qsub_argfile(
     port=config.port,
     ip_address=config.ip_address,
     alternate_runner=False,
+    walltime=None,
 ):
 
     from glob import glob
@@ -560,7 +561,7 @@ def qsub_test(
     """
 
     Path("sleepy.bat").write_text(
-        f"echo Falling asleep...\nsleep {duration}\necho %1\necho %2\necho Waking up"
+        f"echo Falling asleep...\nsleep {duration}\necho %1\necho %2\necho Waking up\nexit"
     )
 
     with open("argfile.txt", "w") as fid:
