@@ -221,6 +221,7 @@ def qsub_cmulti(
 
         if changewd:
             working_dir = str(Path(f).resolve().parent)
+            f = Path(f).name
 
         js = JobSpec(
             command=command_str,
