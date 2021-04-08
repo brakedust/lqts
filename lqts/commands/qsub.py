@@ -173,6 +173,7 @@ def qsub(
         "However, the log file isn't updated until the process terminates."
     ),
 )
+@click.option("--changewd", is_flag=True, help="Causes the working directory to be the parent directory of each input file.")
 def qsub_cmulti(
     command,
     file_pattern,
@@ -186,6 +187,7 @@ def qsub_cmulti(
     port=config.port,
     ip_address=config.ip_address,
     alternate_runner=False,
+    changewd=False
 ):
     """
     Submits mutlitiple jobs to the queue.
@@ -216,6 +218,9 @@ def qsub_cmulti(
             logfile = str(Path(f).with_suffix(".lqts.log"))
         else:
             logfile = None
+
+        if changewd:
+            working_dir = str(Path(f).parent)
 
         js = JobSpec(
             command=command_str,
