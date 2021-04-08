@@ -220,7 +220,7 @@ def qsub_cmulti(
             logfile = None
 
         if changewd:
-            working_dir = str(Path(f).parent)
+            working_dir = str(Path(f).resolve().parent)
 
         js = JobSpec(
             command=command_str,
