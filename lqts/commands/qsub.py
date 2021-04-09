@@ -211,6 +211,10 @@ def qsub_cmulti(
     depends = [JobID.parse(d) for d in depends]
 
     for f in files:
+        if changewd:
+            working_dir = str(Path(f).resolve().parent)
+            f = Path(f).name
+
         # print(f, print(args))
         command_str = f"{command} {f} " + " ".join(f'"{arg}"' for arg in args)
         # print(command)
@@ -219,9 +223,7 @@ def qsub_cmulti(
         else:
             logfile = None
 
-        if changewd:
-            working_dir = str(Path(f).resolve().parent)
-            f = Path(f).name
+
 
         js = JobSpec(
             command=command_str,
