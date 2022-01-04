@@ -64,5 +64,6 @@ setup(
         "psutil",
         "jinja2",
         "tqdm",
+        "requests"
     ],
 )

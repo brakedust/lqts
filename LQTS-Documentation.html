@@ -1,7 +1,7 @@
 <h1 id="lqts-documentation">LQTS Documentation</h1>
-<p><em>Brad Campbell | NSWCCD Code 851</em> | 29 April 2020</p>
 <h1 id="introduction">1. Introduction</h1>
-<p>LQTS (pronounced Locutus) is a lightweight job queueing system. Its purpose is to manage the execution of a large number of computational jobs, only exeucuting a fixed amount of them concurrently. LQTS is intended to be very easy to run. There is no setup required, but some options may be controlled through environment variables or a .env file.</p>
+<p>LQTS (pronounced Locutus) is a <em>L</em>ightweight job <em>Q</em>ueueing <em>S</em>ystem. Its purpose is to manage the execution of a large number of computational jobs, only exeucuting a fixed amount of them concurrently. LQTS is intended to be very easy to run. There is no setup required, but some options may be controlled through environment variables or a .env file.</p>
+<p>If you are familiar with PBS queueing system on Linux, this should be very familiar.</p>
 <p>The major concepts involved in this are:</p>
 <pre><code>* Job Queue - a list of jobs to be executed
 * Job Submission - putting a job in the queue
@@ -36,9 +36,9 @@ Visit http://127.0.0.1:9200/qstatus to view the queue status</code></pre>
 <h2 id="qsub">qsub</h2>
 <p>The <code>qsub</code> command submits one job to the queue.</p>
 <p>Example:</p>
-<p>` qsub –help Usage: qsub [OPTIONS] COMMAND [ARGS]…</p>
+<p>` qsub –help Usage: qsub COMMAND [qsub ARGS] – [COMMAND ARGS]</p>
 <p>Submits one job to the queue</p>
-<p>Options: –priority INTEGER [default: 1] –logfile TEXT Name of log file [default: ] –log Create a log file based on the command name [default: False]</p>
+<p>qsub ARGS: –priority INTEGER [default: 1] –logfile TEXT Name of log file [default: ] –log Create a log file based on the command name [default: False]</p>
 <p>-d, –depends LIST Specify one or more jobs that these batch of jobs depend on. They will be held until those jobs complete [default: &lt;class ‘list’&gt;]</p>
 <p>–debug Produce debug output [default: False] –walltime TEXT A amount of time a job is allowed to run. It will be killed after this amount [NOT IMPLEMENTED YET]</p>
 <p>–cores INTEGER Number of cores/threads required by the job [default: 1]</p>
@@ -48,6 +48,40 @@ Visit http://127.0.0.1:9200/qstatus to view the queue status</code></pre>
 <p>The <code>qsub-cmulti</code> command submits multiple jobs. This command is used you have one command with multiple input files, each of which is a different job. You should be able to reference your input files with a glob pattern (such as "*.inp")</p>
 <p>Example:</p>
 <pre><code>$ qsub-cmulti myprogram.exe *.inp</code></pre>
+<p>Example2:</p>
+<pre><code>$ qsub-cmulti myprogram.exe *.in -- -arg1 --arg2 Arg2Value</code></pre>
+<h3 id="full-command-help">Full Command Help</h3>
+<pre><code>Usage: qsub-cmulti COMMAND FILE_PATTERN [qsub-cmulti ARGS] -- [COMMAND args]
+
+  Submits mutlitiple jobs to the queue.
+
+  Runs **command** for each file in **files**.  Pass in args.
+
+  $ qsub mycommand.exe MyInputFile*.inp  -d 2 --log -- --do --it
+         [-----------] [--------------]  [--------]    [----------]
+           command        filepattern    qsub ARGS     command args
+
+Options:
+  --priority INTEGER      [default: 1]
+  -d, --depends TEXT      Specify one or more jobs that this batch of jobs
+                          depends on. They will be held until those jobs
+                          complete  [default: &lt;class &#39;list&#39;&gt;]
+
+  --debug                 [default: False]
+  --log                   Create a log file for each command submitted
+                          [default: False]
+
+  --cores INTEGER         Number of cores/threads required by the job
+                          [default: 1]
+
+  --port INTEGER          The port number of the server  [default: 9200]
+  --ip_address TEXT       The IP address of the server  [default: 127.0.0.1]
+  -a, --alternate-runner  Runs the submitted command in a slightly different
+                          manner.  In rare cases an executable can start, then
+                          hang.  However, the log file isn&#39;t updated until the
+                          process terminates.  [default: False]
+
+  --help                  Show this message and exit.</code></pre>
 <h2 id="qsub-multi">qsub-multi</h2>
 <p>The <code>qsub-multi</code> commnad submits multiple jobs. This command is used if you have multiple executables or scripts that you want to submit. You should be able to reference this executables or scripts with a glob pattern such as *.bat.</p>
 <p>Example:</p>

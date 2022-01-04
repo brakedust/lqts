@@ -173,7 +173,9 @@ def qsub(
         "However, the log file isn't updated until the process terminates."
     ),
 )
-@click.option("--changewd", is_flag=True, help="Causes the working directory to be the parent directory of each input file.")
+@click.option("--changewd", is_flag=True, help="Causes the working directory to be the parent directory of each input file."
+"  This is useful if your file_pattern traverses directories and there "
+"are additional files in those directories required for command to be successful")
 def qsub_cmulti(
     command,
     file_pattern,

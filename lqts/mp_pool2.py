@@ -4,37 +4,39 @@ mp_pool Module
 
 The mp_pool module implements and DynamicProcessPool which is similar to the the
 concurrent.futures.ProcessPoolExecutor, but it has several significant differences.
-Each job that is created starts a new Python process and that process is terminated
+Each job that is created starts a process and that process is terminated
 when the job is done.  This is intended for medium to long run time jobs where it
 is desirable to have the ability to kill a running job.  The walltime or each
 job can also be tracked.
 
 """
-import concurrent.futures as cf
-from datetime import datetime
-from pathlib import Path
-from typing import List, Dict
-from textwrap import dedent
-import os
-
-# import logging
-
-import subprocess
+# import concurrent.futures as cf
 import multiprocessing as mp
-import queue
+import os
+# import queue
+import subprocess
 import threading
 import time
 from collections import deque
-from typing import Callable, List, Dict, Any
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from textwrap import dedent
+from typing import Any, Callable, Dict, List
 
 # from pydantic import BaseModel, PyObject, validator
 import psutil
-from dataclasses import dataclass
 
-from .schema import JobID, Job, JobStatus, JobQueue
 from lqts.job_runner import run_command
 from lqts.resources import CPUResourceManager, CPUResponse
 from lqts.version import VERSION
+
+from lqts.schema import Job, JobID, JobQueue, JobStatus
+
+# import logging
+
+
+
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
 
@@ -131,7 +133,6 @@ class WorkItem:
     def get_status(self):
 
         if self.job.status not in (JobStatus.Error, JobStatus.Deleted):
-
             try:
                 status = self.process.status()
                 self.job.status = JobStatus.Running

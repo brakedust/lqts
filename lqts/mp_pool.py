@@ -1,4 +1,5 @@
 """
+[deprecated - use mp_pool2]
 mp_pool Module
 ================
 
