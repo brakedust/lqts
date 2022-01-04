@@ -1,5 +1,6 @@
 # LQTS Documentation
 
+**NOTE: The server is intended to be run as LOCAL HOST.  Opening to the network is strongly advised against.**
 
 # 1. Introduction
 
