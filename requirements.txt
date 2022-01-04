@@ -9,7 +9,7 @@ fastapi==0.54.1
 h11==0.9.0
 idna==2.9
 iniconfig==1.1.1
-Jinja2==2.11.2
+Jinja2==2.11.3
 MarkupSafe==1.1.1
 mypy-extensions==0.4.3
 pathspec==0.8.1
