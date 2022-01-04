@@ -109,3 +109,6 @@ tests/data/boo.txt
 lqts/lqts-workspace.code-workspace
 dummylog.txt
 tests/data/log.txt
+tests/temp.html
+tests/temp2.html
+tests/data/argfile.txt
