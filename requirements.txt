@@ -16,7 +16,7 @@ pathspec==0.8.1
 pluggy==0.13.1
 psutil==5.7.0
 py==1.10.0
-pydantic==1.5.1
+pydantic==1.6.2
 pyparsing==2.4.7
 regex==2021.4.4
 requests==2.23.0
