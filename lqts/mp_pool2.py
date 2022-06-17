@@ -333,7 +333,7 @@ class DynamicProcessPool:
             if not work_item.is_running():
                 work_item.mark += 1
                 if work_item.mark > 1:
-                    print(f"finished job {job_id}")
+                    # print(f"finished job {job_id}")
                     work_item.clean_up()
                     self.CPUManager.free_processors(work_item.cores)
 

@@ -20,7 +20,9 @@ class CPUResourceManager:
 
         self.cpu_count = cpu_count
 
-        self.processors = {i: ProcState.idle for i in range(self.cpu_count)}
+        self.processors = {i: ProcState.idle for i in range(2, self.cpu_count+2, 2)} | {
+            i: ProcState.idle for i in range(3, self.cpu_count+2, 2)
+        }
 
     def cpu_avalaible_count(self):
         available = [

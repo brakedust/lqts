@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>LoQuTuS - Queue Status </title>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="120">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.19/js/dataTables.bootstrap4.min.js"></script>
+    <style>
+        /* .fakeimg {
+      height: 100px;
+      background: #aaa;
+  } */
+    </style>
+</head>
+
+<body>
+    <div class="container" style="background:steelblue">
+        <h1 style="text-align:center;color: white">LoQuTuS</h1>
+        <h2 style="text-align:center;color: white"> Queue Status </h1>
+    </div>
+
+
+
+
+    <div class="container">
+        <div class="row">
+            <div class="col-sm">
+                <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=yes"
+                    role="button">Include Completed</a>
+                <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=no"
+                    role="button">Exclude Completed</a>
+
+            </div>
+
+
+            <div class="col-sm">
+
+
+                <div class="row">
+                    <form action="http://127.0.0.1:9200/workers" method="post">
+                        <!-- <label class="lead" style="margin-right:5px" for="count">Worker Count</label> -->
+
+                        <input class="form-control" type="text" id="count" name="count" placeholder="14"
+                            style="width:60px;margin-right:5px">
+
+                        <button class="btn btn-danger" type="submit" value="Submit">
+                    </form>
+                </div>
+
+
+            </div>
+
+
+        </div>
+    </div>
+
+    <div class="container">
+        <p class="lead"> R:14 D:1 Q:0 C:0 </p>
+    </div>
+
+
+    <div class="container">
+
+        <table id="QstatTable" class="table table-sm display">
+            <thead class="thead-dark" style="text-align:center;">
+
+
+                <th>ID</th>
+
+                <th>St</th>
+
+                <th>Command</th>
+
+                <th>Walltime</th>
+
+                <th>WorkingDir</th>
+
+                <th>Dependencies</th>
+
+            </thead>
+
+
+            <tr style="text-align: center;">
+
+                <td>1.001</td>
+
+                <td>D</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v12.in </td>
+
+                <td>0:00:04.577477</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.000</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v10.in </td>
+
+                <td>0:00:06.270961</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.002</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v14.in </td>
+
+                <td>0:00:06.094964</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.003</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v16.in </td>
+
+                <td>0:00:06.011965</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.004</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v18.in </td>
+
+                <td>0:00:05.928966</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.005</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v20.in </td>
+
+                <td>0:00:05.843967</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.006</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v22.in </td>
+
+                <td>0:00:05.760467</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.007</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v24.in </td>
+
+                <td>0:00:05.676465</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.008</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v26.in </td>
+
+                <td>0:00:05.589465</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.009</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v27.in </td>
+
+                <td>0:00:05.500969</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.010</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v28.in </td>
+
+                <td>0:00:05.412468</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.011</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v29.in </td>
+
+                <td>0:00:05.317968</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.012</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v30.in </td>
+
+                <td>0:00:05.212968</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.013</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v32.in </td>
+
+                <td>0:00:05.105970</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.014</td>
+
+                <td>R</td>
+
+                <td>D:\apps\slaw\slaw.exe case_v34.in </td>
+
+                <td>0:00:00.718493</td>
+
+                <td>D:/temp/slaw/run</td>
+
+                <td></td>
+
+            </tr>
+
+
+        </table>
+    </div>
+
+
+    <script>
+
+
+
+        $(document).ready(function () {
+            $('#QstatTable').DataTable(
+                {
+                    paging: false
+
+                }
+            );
+
+            var i;
+            var row;
+            var t = document.getElementsByClassName("table");
+
+            for (i = 0; i < t[0].rows.length; i++) {
+                row = t[0].rows[i]
+                if (row.cells[1].innerHTML == "R") {
+                    // running
+                    row.style.backgroundColor = "#007bff";
+                    row.style.color = "white";
+                }
+                else if (row.cells[1].innerHTML == "Q") {
+                    // queued
+
+                    if (row.cells[5].innerHTML.startsWith("-")) {
+                        row.style.color = "white";
+                        row.style.backgroundColor = "green";
+                    }
+                    else {
+                        // queued, has incomplete dependenceis
+                        row.style.backgroundColor = "lightgreen";
+                    }
+                }
+                else if (row.cells[1].innerHTML == "C") {
+                    row.style.color = "#999 ";
+                }
+                else if (row.cells[1].innerHTML == "D") {
+                    row.style.backgroundColor = "#ffcccc";
+                    row.style.color = "slategrey";
+                }
+
+            }
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>LoQuTuS - Queue Status </title>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="120">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        /* .fakeimg {
+      height: 100px;
+      background: #aaa;
+  } */
+    </style>
+</head>
+
+<body>
+    <div class="container" style="background:steelblue">
+        <h1 style="text-align:center;color: white">LoQuTuS</h1>
+        <h2 style="text-align:center;color: white"> Queue Status </h1>
+    </div>
+
+
+
+
+    <div class="container">
+        <!-- <div class="row"> -->
+        <!-- <div class="col-sm"> -->
+        <!-- <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=yes"
+                role="button">Include Completed</a>
+            <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=no"
+                role="button">Exclude Completed</a>
+
+        </div> -->
+
+        <!--
+            <div class="col-sm">
+
+
+                <div class="row"> -->
+        <form id="myform" action="http://127.0.0.1:9200/workers" method="post">
+            <!-- <label class="lead" style="margin-right:5px" for="count">Worker Count</label> -->
+
+            <input class="form-control" type="text" id="count" name="count" placeholder="14" value="10"
+                style="width:60px;margin-right:5px">
+
+            <input type="submit" value="Submit">
+        </form>
+        <!-- </div> -->
+
+
+        <!-- </div> -->
+
+
+        <!-- </div> -->
+    </div>
+
+
+</body>
+<script>
+    var formData = JSON.stringify($("#myform").serializeArray());
+    $.ajax({
+        type: "POST",
+        url: "http://127.0.0.1:9200/workers",
+        data: formData,
+        success: function () { },
+        dataType: "json",
+        contentType: "application/json"
+    });
+</script>
+
+</html>

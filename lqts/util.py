@@ -11,10 +11,10 @@ INT_TYPES = [int]
 try:
     import numpy
 
-    FLOAT_TYPES.extend([numpy.float32, numpy.float64, numpy.float])
+    FLOAT_TYPES.extend([numpy.float32, numpy.float64])
 
     INT_TYPES.extend(
-        [numpy.int, numpy.int0, numpy.int16, numpy.int32, numpy.int64, numpy.int8]
+        [numpy.int0, numpy.int16, numpy.int32, numpy.int64, numpy.int8]
     )
 except ImportError:
     pass

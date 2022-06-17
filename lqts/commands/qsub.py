@@ -111,10 +111,13 @@ def qsub(
         log_file=logfile,
         priority=priority,
         depends=depends,
-        walltime=walltime,
+        # walltime=walltime,
         cores=cores,
         alternate_runner=alternate_runner,
     )
+
+    if debug:
+        print([job_spec.dict()])
 
     config.port = port
     config.ip_address = ip_address
@@ -136,7 +139,7 @@ def qsub(
 
 @click.command("qsub-cmulti")
 @click.argument("command", nargs=1)
-@click.argument("file_pattern", nargs=1)
+@click.argument("file_pattern", nargs=1, type=str)
 @click.argument("args", nargs=-1)
 @click.option("--priority", default=1, type=int)
 # @click.option("--logfile", default="", type=str)
@@ -144,7 +147,7 @@ def qsub(
     "-d",
     "--depends",
     cls=OptionNargs,
-    default=list,
+    default=None,
     help="Specify one or more jobs that these batch of jobs depend on."
     " They will be held until those jobs complete",
 )
@@ -173,9 +176,13 @@ def qsub(
         "However, the log file isn't updated until the process terminates."
     ),
 )
-@click.option("--changewd", is_flag=True, help="Causes the working directory to be the parent directory of each input file."
-"  This is useful if your file_pattern traverses directories and there "
-"are additional files in those directories required for command to be successful")
+@click.option(
+    "--changewd",
+    is_flag=True,
+    help="Causes the working directory to be the parent directory of each input file."
+    "  This is useful if your file_pattern traverses directories and there "
+    "are additional files in those directories required for command to be successful",
+)
 def qsub_cmulti(
     command,
     file_pattern,
@@ -189,7 +196,7 @@ def qsub_cmulti(
     port=config.port,
     ip_address=config.ip_address,
     alternate_runner=False,
-    changewd=False
+    changewd=False,
 ):
     """
     Submits mutlitiple jobs to the queue.
@@ -206,11 +213,13 @@ def qsub_cmulti(
     from glob import iglob
 
     files = iglob(file_pattern)
-
+    # print("file_patter:", file_pattern)
+    # print(files)
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    depends = [JobID.parse(d) for d in depends]
+    if depends:
+        depends = [JobID.parse_obj(d) for d in depends]
 
     for f in files:
         if changewd:
@@ -224,8 +233,6 @@ def qsub_cmulti(
             logfile = str(Path(f).with_suffix(".lqts.log"))
         else:
             logfile = None
-
-
 
         js = JobSpec(
             command=command_str,

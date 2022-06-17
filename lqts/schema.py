@@ -328,7 +328,8 @@ class JobQueue(BaseModel):
             return None
 
         for job in sorted(self.queued_jobs.values()):
-            return job
+            if self.check_can_job_run(job.job_id):
+                return job
 
     def on_job_started(self, started_job: Job):
         """
