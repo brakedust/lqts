@@ -464,7 +464,7 @@ def _qsub_argfile(
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    depends = [JobID.parse(d) for d in depends]
+    depends = [JobID.parse_obj(d) for d in depends]
 
     with open(argfile) as f:
 
