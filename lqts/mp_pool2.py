@@ -10,45 +10,41 @@ is desirable to have the ability to kill a running job.  The walltime or each
 job can also be tracked.
 
 """
-# import concurrent.futures as cf
+
 import multiprocessing as mp
 import os
-# import queue
 import subprocess
 import threading
 import time
-from collections import deque
+# from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+# from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
-# from pydantic import BaseModel, PyObject, validator
 import psutil
 
 from lqts.job_runner import run_command
 from lqts.resources import CPUResourceManager, CPUResponse
-from lqts.version import VERSION
-
 from lqts.schema import Job, JobID, JobQueue, JobStatus
-
-# import logging
-
-
-
+from lqts.version import VERSION
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
 
 
 @dataclass
 class WorkItem:
+    """
+    A WorkItem is the object that executes a Job.  To do so it has
+        * job: the job (including job spec)
+        * cores: list of cpu cores assigned to this job
+        * process: the process (in the system or cpu sense of the word) that the job executes as
+        * logfile: handle to the logfile for writing
+    """
 
     job: Job
     cores: List = None
-
-    # start_time: datetime = None
-    # stop_time: datetime = None
 
     mark: int = 0
 
@@ -57,94 +53,119 @@ class WorkItem:
     logfile = None  # file handle
 
     def start_logging(self):
+        """
+        Opens the log file and writes the job header
+        """
         if self.job.job_spec.log_file:
             self.logfile = open(self.job.job_spec.log_file, "w")
 
             header = dedent(
-                """
+                f"""
                 Executed with LQTS (the Lightweight Queueing System)
-                LQTS Version {}
+                LQTS Version {VERSION}
                 -----------------------------------------------
-                Job ID:  {}
-                WorkDir: {}
-                Command: {}
-                Started: {}
+                Job ID:  {self.job.job_id}
+                WorkDir: {self.job.job_spec.working_dir}
+                Command: {self.job.job_spec.command}
+                Started: {self.job.started.isoformat()}
                 -----------------------------------------------
 
-                """.format(
-                    VERSION,
-                    self.job.job_id,
-                    self.job.job_spec.working_dir,
-                    self.job.job_spec.command,
-                    self.job.started.isoformat(),
-                    # end.isoformat(),
-                    # (end - start),
-                )
+                """
             )
 
             self.logfile.write(header)
 
     def start(self):
-        # p = subprocess.Popen(
-        #     command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
-        # )
+        """
+        Starts the job.  The follow steps take place:
+            1. Change directory to the job's working dir
+            2. Optionally start logging
+            3. Start the process
+            4. Set the process priority low so desktop systems stay reponsive
+            5. Set the cpu affinity for the process to the assigned cores
+        """
+
+        # ================================================
+        # 1. Change directory to the job's working dir
+        # ================================================
         os.chdir(self.job.job_spec.working_dir)
 
         self.job.started = datetime.now()
 
         if self.job.job_spec.log_file:
+            # ================================================
+            # 2. Optionally start logging
+            # ================================================
             self.start_logging()
 
         try:
-            # print("starting")
+            # ================================================
+            # 3. Start the process
+            # ================================================
             self.process = psutil.Popen(
                 self.job.job_spec.command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 shell=False,
             )
-            # print("started")
+
+            # ================================================
+            #4. Set the process priority low so desktop systems stay reponsive
+            # ================================================
             if psutil.WINDOWS:
                 self.process.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
                 self.process.ionice(psutil.IOPRIO_LOW)
             elif psutil.LINUX:
                 self.process.nice(10)
                 self.process.ionice(psutil.IOPRIO_CLASS_BE, value=5)
-            # ================================================
 
             # ================================================
-            # set the cpu affinity for the job so it doesn't hop all over the place
-            # this is QUITE be helpful on large core systems
-            # if cores is None:
-            #     some_available, cores = self.CPUManager.get_processors(count=job.job_spec.cores)
-
+            # 5. Set the cpu affinity for the process to the assigned cores
+            # ================================================
+            # Set the cpu affinity for the job so it doesn't hop all over the place
+            # This is very helpful on large core systems
             self.process.cpu_affinity(self.cores)
+            self.job.cores = self.cores
 
         except FileNotFoundError:
             self.logfile.write(
                 f"\nERROR: Command not found.  Ensure the command is an executable file.\n"
             )
             self.logfile.write(
-                f"Make sure you give the full path to the file or that it is on your system path.\n\n"
+                f"Make sure you give the full path to the file or "
+                "that it is on your system path.\n\n"
             )
+            # ================================================
+            # Flag the job as completed with an error status
             self.job.completed = datetime.now()
             self.job.status = JobStatus.Error
 
-    def get_status(self):
-
+    def get_status(self) -> JobStatus:
+        """
+        Get the status of this work item
+        """
         if self.job.status not in (JobStatus.Error, JobStatus.Deleted):
             try:
+                # If we can query the process status, it is a live and running
                 status = self.process.status()
                 self.job.status = JobStatus.Running
             except psutil.NoSuchProcess:
+                # If self.process.status() fails, the process has exited
+                # so the job is done
                 self.job.status = JobStatus.Completed
 
         return self.job.status
 
-    def is_running(self):
+    def is_running(self) -> bool:
+        """
+        Convienience method to tell if job status is JobStatus.Running
+        """
         return self.get_status() == JobStatus.Running
 
     def get_output(self):
+        """
+        Reads some output from the process and writes it to the logfile
+        """
         line = self.process.stdout.read()
         line += self.process.stderr.read()
         line = line.decode().replace("\r", "").replace("\n\n", "\n")
@@ -152,43 +173,37 @@ class WorkItem:
         self.logfile.write(line)
 
     def clean_up(self):
+        """
+        Mark sjob as completed and write epilogue to logfile
+        """
+
         self.job.completed = datetime.now()
 
         if not self.job.job_spec.log_file:
             return
 
         footer = dedent(
-            """
+            f"""
             -----------------------------------------------
             Job Performance
             -----------------------------------------------
-            Started: {}
-            Ended:   {}
-            Elapsed: {}
+            Started: {self.job.started.isoformat()}
+            Ended:   {self.job.completed.isoformat()}
+            Elapsed: {self.job.walltime}
             -----------------------------------------------
             """
         )
 
-        footer = footer.format(
-            self.job.started.isoformat(),
-            self.job.completed.isoformat(),
-            (self.job.walltime),
-        )
         self.logfile.write(footer)
 
         self.logfile.close()
 
     def kill(self):
+        """
+        Kill this job and set its status to deleted
+        """
         self.process.kill()
         self.job.status = JobStatus.Deleted
-
-    # @validator("future")
-    # def allow_anything(cls, v):
-    #     return v
-
-    # @validator("fn")
-    # def allow_anything2(cls, v):
-    #     return v
 
 
 @dataclass
@@ -197,23 +212,6 @@ class Event:
     job: Job
     event_type: str
     when: datetime
-
-
-# def mp_worker_func(q_in: mp.Queue, q_out: mp.Queue):
-
-#     # job, func, args, kwargs = q_in.get()
-#     work_item = q_in.get()
-#     # print(work_item)
-
-#     job = run_command(work_item[0])
-#     # job.started = datetime.now()
-#     # future.set_result(result)
-#     # stop_time = datetime.now()
-#     # job.completed = datetime.now()
-#     # job.walltime = job.completed - job.started
-#     # print(job)
-#     # future._state = cf._base.FINISHED
-#     q_out.put(job)
 
 
 class DummyLogger:
@@ -236,47 +234,31 @@ class DynamicProcessPool:
     def __init__(
         self,
         queue: JobQueue,
-        max_workers=DEFAULT_WORKERS,
-        feed_delay=0.0,
-        manager_delay=1.0,
+        max_workers: int=DEFAULT_WORKERS,
+        feed_delay: float=0.0,
+        manager_delay: float=1.0,
     ):
 
-        # self.server = server
         self.job_queue: JobQueue = queue
 
-        # max_works = max(max_workers, 1)
         self.CPUManager = CPUResourceManager(
             min(max(max_workers, 1), mp.cpu_count() - 1)
         )
-        # if max_workers is not None:
-        #     if max_workers <= 0:
-        #         raise ValueError("max_workers must be greater than 0")
-        #     self._max_workers = max_workers
 
-        self.feed_delay = feed_delay
-        self.manager_delay = manager_delay
+
+        self.feed_delay = feed_delay  # delay between subsequent job start ups
+
+        self.manager_delay = manager_delay  # delay in manager thread loop
 
         self._work_items: Dict[JobID, WorkItem] = {}
 
-        self._queue = deque()  # deque(maxlen=1000)
-        # self._results = {}
+        # self._queue = deque()
 
-        # self.q_input = mp.Queue()
-        # self.q_output = mp.Queue()
         self.__exiting = False
-        # self.results = deque(maxlen=500)
 
         self.q_lock = threading.Lock()
-        # self.job_lock = threading.Lock()
+
         self.w_lock = threading.Lock()
-
-        # self.status_queue = mp.Queue()  # used to send signals and data to external code
-
-        # self.q_count = 0
-
-        # self.__signal_queue = mp.Queue()  # used to send internal signals and data
-
-        # self._start_manager_thread()
 
         self._event_callbacks = set()
 
@@ -286,7 +268,7 @@ class DynamicProcessPool:
         self.__manager_thread = None
 
     @property
-    def max_workers(self):
+    def max_workers(self) -> int:
         return self.CPUManager.cpu_count
 
     @max_workers.setter
@@ -327,27 +309,26 @@ class DynamicProcessPool:
 
         """
         work_item: WorkItem
-        # try:
+
         # see if any results are available
         for job_id, work_item in list(self._work_items.items()):
+
             if not work_item.is_running():
+                # the work_item has completed
                 work_item.mark += 1
                 if work_item.mark > 1:
-                    # print(f"finished job {job_id}")
+                    # clean it up
                     work_item.clean_up()
+                    # free the cpu resources
                     self.CPUManager.free_processors(work_item.cores)
 
                     job = work_item.job
-                    # print(job)
+
                     self.log.info("Got result {} = {}".format(job.job_id, job))
                     self.job_queue.on_job_finished(job)
                     self._work_items.pop(job_id)
 
-        # make sure to feed the queue to keep work going
-        # if not self.__paused:
-        #     self.feed_queue()
-
-    def submit_one_job(self, job: Job, cores: list):
+    def submit_one_job(self, job: Job, cores: list) -> tuple[bool, WorkItem]:
         """Start one job running in the pool"""
 
         work_item = WorkItem(job=job, cores=cores)
@@ -369,6 +350,7 @@ class DynamicProcessPool:
             job = self.job_queue.next_job()
 
             if job is None:
+                # no jobs available
                 break
 
             some_available, cores = self.CPUManager.get_processors(
@@ -376,7 +358,9 @@ class DynamicProcessPool:
             )
 
             if not some_available:
+                # not enough cores are available to run this job
                 break
+
             # while there is work to do and workers available, start up new jobs
             job_was_submitted, work_item = self.submit_one_job(job, cores)
             self._work_items[job.job_id] = work_item
@@ -392,7 +376,7 @@ class DynamicProcessPool:
     def unpause(self):
         self.__paused = False
 
-    def kill_job(self, job_id_to_kill, kill_all=False):
+    def kill_job(self, job_id_to_kill, kill_all=False) -> int:
         """
         Kills the job with ID *job_id_to_kill*
 
@@ -431,18 +415,24 @@ class DynamicProcessPool:
         """
         while True:
             time.sleep(self.manager_delay)
+
+            # check for finished jobs
             self.process_completions()
 
             if self.__exiting:
                 if len(self._work_items) == 0:
+                    # we are done
                     return
                 else:
+                    # we still have some clean up to do
                     continue
 
             elif self.__paused:
+                # don't do anything this time through the loop
                 continue
 
             else:
+                # start up new jobs
                 self.feed_queue()
 
     # def join(self, timeout=None):
@@ -459,12 +449,16 @@ class DynamicProcessPool:
     #         value = self.__signal_queue.get(timeout=timeout)
     #         self.log.debug("join received signal: {}".format(value))
 
-    def join(self, wait=True):
+    def join(self, wait:bool=True):
+        """
+        If wait is True, this blocks until all jobs are complete.
+        If wait is False, then running jobs are killed and we wait for
+        the manager thread to complete
+        """
         self.shutdown(wait=wait)
-        # print("waiting for things to finish up")
         self.__manager_thread.join()
 
-    def shutdown(self, wait=True):
+    def shutdown(self, wait:bool=True):
         """
         Shuts down the pool.
 
@@ -478,9 +472,10 @@ class DynamicProcessPool:
 
         if not wait:
             for work_item in self._work_items.values():
+                # kill running jobs
                 work_item.kill()
 
-    def _start_manager_thread(self):
+    def _start_manager_thread(self) -> threading.Thread:
         """
         Starts the thread that manages the process pool
 
