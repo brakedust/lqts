@@ -34,6 +34,33 @@ def render_qstat_table(jobs: List[Job], include_complete: bool = False):
     return table_text
 
 
+def render_qtop_table(jobs: List[Job]):
+
+    proc_map = {}
+    for job in jobs:
+        if (job.cores) and (not job.completed):
+            for core in job.cores:
+                proc_map[core] = job
+                # print(job.job_id, core)
+
+    rows = []
+    for i in range(0, 8):
+        row = []
+        for j in range(0, 8):
+            proc = i*8 + j
+            if proc in proc_map:
+                job: Job = proc_map[proc]
+                row.append(str(job.job_id))
+            else:
+                row.append("")
+        rows.append(row)
+
+    table_template = env.get_template("qtop.jinja")
+    table_text = table_template.render(rows=rows)
+
+    return table_text
+
+
 def render_qstat_page(include_complete: bool = False):
 
     jobs = app.queue.all_jobs
@@ -56,7 +83,8 @@ def render_qstat_page(include_complete: bool = False):
         navbar="",
         buttonbar=buttonbar,
         summary=summary_text,
-        table=render_qstat_table(jobs, include_complete),
+        qstat_table=render_qstat_table(jobs, include_complete),
+        qtop_table=render_qtop_table(jobs),
         script_block=script_block,
     )
 

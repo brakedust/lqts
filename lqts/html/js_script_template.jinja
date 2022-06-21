@@ -13,10 +13,10 @@
 
         var i;
         var row;
-        var t = document.getElementsByClassName("table");
+        var t = document.getElementById("QstatTable");
 
-        for (i = 0; i < t[0].rows.length; i++) {
-            row = t[0].rows[i]
+        for (i = 0; i < t.rows.length; i++) {
+            row = t.rows[i]
             if (row.cells[1].innerHTML == "R") {
                 // running
                 row.style.backgroundColor = "#007bff";
@@ -44,4 +44,34 @@
 
         }
     });
+
+
+     $(document).ready(function () {
+            $('#QTopTable').DataTable(
+                {
+                    paging: false
+
+                }
+            );
+
+            var i;
+            var row;
+            var t = document.getElementById("QTopTable");
+
+            for (i = 1; i < t.rows.length; i++) {
+                row = t.rows[i]
+
+                for (j = 1; j < 9; j++) {
+                    if (row.cells[j].innerHTML != "") {
+                        row.cells[j].style.backgroundColor = "#00bb00";
+                    }
+                    else {
+                        row.cells[j].style.backgroundColor = "#d7e2f4";
+                    }
+                }
+
+
+            }
+        });
+
 </script>

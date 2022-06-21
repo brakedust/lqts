@@ -1,0 +1,27 @@
+
+<table id="QTopTable" class="table table-sm display">
+    <thead class="thead-dark" style="text-align:center;">
+
+            <th></th>
+            <th>0</th>
+            <th>1</th>
+            <th>2</th>
+            <th>3</th>
+            <th>4</th>
+            <th>5</th>
+            <th>6</th>
+            <th>7</th>
+
+            </thead>
+    </thead>
+
+    {% for row in rows %}
+        <tr style="text-align: center;">
+        <td>{{ loop.index - 1 }}</td>
+        {% for item in row %}
+            <td>{{ item }}</td>
+        {% endfor %}
+        </tr>
+    {% endfor %}
+
+</table>
