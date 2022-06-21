@@ -297,12 +297,14 @@ class JobQueue(BaseModel):
 
         if len(job_specs) == 1:
             LOGGER.info(
-                f"+++ Assimilated job {job.job_id} at {job.submitted.isoformat()} - {job.job_spec.command}"
+                f"+++ Assimilated job {job.job_id} at " +
+                f"{job.submitted.isoformat()} - {job.job_spec.command}"
             )
         elif len(job_specs) > 1:
             first_job_id, *_, last_job_id = list(group.jobs.keys())
             LOGGER.info(
-                f"+++ Assimilated jobs {first_job_id} - {last_job_id} at {group.jobs[first_job_id].submitted.isoformat()}"
+                f"+++ Assimilated jobs {first_job_id} - {last_job_id} at " +
+                f"{group.jobs[first_job_id].submitted.isoformat()}"
             )
 
         self.on_queue_change()
@@ -360,7 +362,7 @@ class JobQueue(BaseModel):
             if self.log is not None:
                 self.log.info(
                     f"--- Completed   job {job.job_id} at {job.completed.isoformat()}. " +
-                   f"Duration = {duration}"
+                    f"Duration = {duration}"
                 )
         except KeyError:
             pass

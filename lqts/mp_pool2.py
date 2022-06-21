@@ -110,7 +110,7 @@ class WorkItem:
             )
 
             # ================================================
-            #4. Set the process priority low so desktop systems stay reponsive
+            # 4. Set the process priority low so desktop systems stay reponsive
             # ================================================
             if psutil.WINDOWS:
                 self.process.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
@@ -234,9 +234,9 @@ class DynamicProcessPool:
     def __init__(
         self,
         queue: JobQueue,
-        max_workers: int=DEFAULT_WORKERS,
-        feed_delay: float=0.0,
-        manager_delay: float=1.0,
+        max_workers: int = DEFAULT_WORKERS,
+        feed_delay: float = 0.0,
+        manager_delay: float = 1.0,
     ):
 
         self.job_queue: JobQueue = queue
@@ -244,7 +244,6 @@ class DynamicProcessPool:
         self.CPUManager = CPUResourceManager(
             min(max(max_workers, 1), mp.cpu_count() - 1)
         )
-
 
         self.feed_delay = feed_delay  # delay between subsequent job start ups
 
@@ -449,7 +448,7 @@ class DynamicProcessPool:
     #         value = self.__signal_queue.get(timeout=timeout)
     #         self.log.debug("join received signal: {}".format(value))
 
-    def join(self, wait:bool=True):
+    def join(self, wait: bool = True):
         """
         If wait is True, this blocks until all jobs are complete.
         If wait is False, then running jobs are killed and we wait for
@@ -458,7 +457,7 @@ class DynamicProcessPool:
         self.shutdown(wait=wait)
         self.__manager_thread.join()
 
-    def shutdown(self, wait:bool=True):
+    def shutdown(self, wait: bool = True):
         """
         Shuts down the pool.
 

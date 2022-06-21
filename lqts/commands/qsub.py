@@ -46,7 +46,8 @@ def encode_path(p):
     "--walltime",
     type=str,
     default=None,
-    help="A amount of time a job is allowed to run.  It will be killed after this amount [NOT IMPLEMENTED YET]",
+    help=("A amount of time a job is allowed to run.  " +
+          "It will be killed after this amount [NOT IMPLEMENTED YET]"),
 )
 @click.option(
     "--cores", type=int, default=1, help="Number of cores/threads required by the job"
@@ -536,7 +537,8 @@ def _qsub_argfile(
     "--walltime",
     type=str,
     default=None,
-    help="A amount of time a job is allowed to run.  It will be killed after this amount [NOT IMPLEMENTED YET]",
+    help=("A amount of time a job is allowed to run.  " +
+          "It will be killed after this amount [NOT IMPLEMENTED YET]"),
 )
 @click.option(
     "--cores", type=int, default=1, help="Number of cores/threads required by the job"
