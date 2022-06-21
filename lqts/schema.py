@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from multiprocessing import cpu_count
 from os.path import expanduser, join
 from queue import PriorityQueue
-from typing import Any, Deque, Dict, List, Union
+from typing import Any, Deque, Dict, List, Union, Tuple
 from uuid import uuid4
 
 # import logging
@@ -121,8 +121,9 @@ class Job(BaseModel):
     started: datetime = None
     completed: datetime = None
 
-    # walltime: timedelta = None
     job_spec: JobSpec = None
+
+    cores: list[int] = None
 
     # def __init__(self, *args, **kwargs):
     #     print("kwargs = ", kwargs)
@@ -268,7 +269,7 @@ class JobQueue(BaseModel):
             if job.job_id.group == group_id
         ]
 
-    def find_job(self, job_id: JobID) -> (Job, "JobQueue"):
+    def find_job(self, job_id: JobID) -> Tuple[Job, "JobQueue"]:
         """
         Looks for a job in the queued and running jobs
         """
@@ -343,7 +344,7 @@ class JobQueue(BaseModel):
 
         if self.log is not None:
             self.log.info(
-                f">>> Started     job {job.job_id} at {job.started.isoformat()}"
+                f">>> Started     job {job.job_id} at {job.started.isoformat()}.  cores={job.cores}"
             )
 
     def on_job_finished(self, completed_job: Job):
@@ -355,9 +356,11 @@ class JobQueue(BaseModel):
             job.status = completed_job.status
             job.completed = completed_job.completed
             self.completed_jobs[job.job_id] = job
+            duration = job.completed - job.started
             if self.log is not None:
                 self.log.info(
-                    f"--- Completed   job {job.job_id} at {job.completed.isoformat()}"
+                    f"--- Completed   job {job.job_id} at {job.completed.isoformat()}. " +
+                   f"Duration = {duration}"
                 )
         except KeyError:
             pass
@@ -376,11 +379,14 @@ class JobQueue(BaseModel):
 
         job = self.queued_jobs[job_id]
 
-        waiting_on: List[JobID] = [
-            id_
-            for id_ in job.job_spec.depends
-            if ((id_ in self.running_jobs) or (id_ in self.queued_jobs))
-        ]
+        if job.job_spec.depends:
+            waiting_on: List[JobID] = [
+                id_
+                for id_ in job.job_spec.depends
+                if ((id_ in self.running_jobs) or (id_ in self.queued_jobs))
+            ]
+        else:
+            waiting_on: List[JobID] = []
 
         if len(waiting_on) > 0:
 
