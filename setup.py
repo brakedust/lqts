@@ -37,6 +37,8 @@ setup(
     name="lqts",
     packages=packages,
     version=VERSION,
+    include_package_data=True,
+    package_data={"lqts/html": ["*"]},
     entry_points={
         "console_scripts": [
             "qsub = lqts.commands.qsub:qsub",
