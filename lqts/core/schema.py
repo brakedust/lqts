@@ -2,18 +2,13 @@ import concurrent.futures as cf
 import enum
 import itertools
 from datetime import datetime, timedelta
-from multiprocessing import cpu_count
-from os.path import expanduser, join
-from queue import PriorityQueue
-from typing import Any, Deque, Dict, List, Union, Tuple
-from uuid import uuid4
+from typing import Any, Dict, List, Tuple
+import textwrap
 
-# import logging
-
+from lqts.core.config import Configuration
+from lqts.simple_logging import Level, getLogger, Logger
 from pydantic import BaseModel
-from lqts.simple_logging import getLogger, Level
 
-from lqts.config import Configuration
 
 DEBUG = False
 
@@ -174,15 +169,19 @@ class Job(BaseModel):
 
     def as_table_row(self) -> list:
 
+        if self.job_spec.depends:
+            dependencies_str = " ".join(str(d) for d in self.job_spec.depends)
+            # dependencies_str = textwrap.wrap(dependencies_str, width=40, initial_indent="<p>")
+        else:
+            dependencies_str = ""
+
         return [
             self.job_id,
             self.status.value,
             self.job_spec.command,
             self.walltime,
             self.job_spec.working_dir,
-            ",".join(str(d) for d in self.job_spec.depends)
-            if self.job_spec.depends
-            else "",
+            dependencies_str,
         ]
 
     def _sort_params(self):
@@ -232,9 +231,17 @@ class JobQueue(BaseModel):
 
     is_dirty: bool = False
     flags: list = []
-    log: Any = None
 
     config: Configuration = Configuration()
+
+    # _log: Any =
+
+    # @property
+    # def log(self):
+
+    #     if not hasattr(self, '_log') or self._log is None:
+    #         setattr(self, '_log', getLogger("lqts", level=Level.INFO))
+    #     return self._log
 
     # def __post_init__(self):
 
@@ -247,9 +254,10 @@ class JobQueue(BaseModel):
     # def __post_init__(self):
     #     if start_manager_thread:
     #         self._start_manager_thread()
-    #     LOGGER =
+    #     log =
 
     def start_up(self):
+        # self.log = LOGGER
         self._start_manager_thread()
 
     def on_queue_change(self, *args, **kwargs):
@@ -282,7 +290,7 @@ class JobQueue(BaseModel):
         return None, None
 
     def submit(self, job_specs: List[JobSpec]) -> List[JobID]:
-        global LOGGER
+        # global LOGGER
         # job_ids = []
         group = JobGroup(group_number=self.next_group_number)
         self.job_groups[group.group_number] = group
@@ -344,8 +352,8 @@ class JobQueue(BaseModel):
         self.running_jobs[job.job_id] = job
         self.on_queue_change()
 
-        if self.log is not None:
-            self.log.info(
+        if LOGGER is not None:
+            LOGGER.info(
                 f">>> Started     job {job.job_id} at {job.started.isoformat()}.  cores={job.cores}"
             )
 
@@ -359,8 +367,8 @@ class JobQueue(BaseModel):
             job.completed = completed_job.completed
             self.completed_jobs[job.job_id] = job
             duration = job.completed - job.started
-            if self.log is not None:
-                self.log.info(
+            if LOGGER is not None:
+                LOGGER.info(
                     f"--- Completed   job {job.job_id} at {job.completed.isoformat()}. " +
                     f"Duration = {duration}"
                 )
@@ -404,18 +412,21 @@ class JobQueue(BaseModel):
         Keeps the list of completed jobs to a defined size
         """
         # completed_limit = DEFAULT_CONFIG.prune_job_limt
+
         completed_jobs = len(self.completed_jobs)
-        if completed_jobs < self.completed_limit:
+        if completed_jobs <= self.completed_limit:
+            LOGGER.debug("Pruning - nothing pruned")
             return
 
-        prune_count = completed_jobs - int(self.completed_limit / 2)
-
+        prune_count = completed_jobs - self.completed_limit  # int(self.completed_limit / 2)
+        LOGGER.debug(f"Pruning - will prune {prune_count} completed jobs")
         self.pruned_jobs = {}
         for ij, job in enumerate(list(self.completed_jobs.values())):
             if ij >= prune_count:
                 return
-            self.completed_jobs.pop(job.job_id)
-            self.pruned_jobs[job.job_id] = job
+            if job.job_id not in self.running_jobs:
+                self.completed_jobs.pop(job.job_id)
+                # self.pruned_jobs[job.job_id] = job
 
         self.on_queue_change()
 
@@ -435,6 +446,7 @@ class JobQueue(BaseModel):
             for __ in range(15):
                 time.sleep(2)
                 if "abort" in self.flags:
+                    LOGGER.debug("Aborting and shutting down")
                     self.flags.remove("abort")
                     return
 

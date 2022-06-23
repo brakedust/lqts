@@ -1,7 +1,7 @@
 from typing import List
 from collections import Counter
-from lqts.schema import Job, JobID, JobSpec, JobStatus
-from lqts.server import app
+from lqts.core.schema import Job, JobID, JobSpec, JobStatus
+from lqts.core.server import app
 
 # import jinja2
 # import lqts.displaytable as dt
@@ -34,8 +34,17 @@ def render_qstat_table(jobs: List[Job], include_complete: bool = False):
     return table_text
 
 
-def render_qtop_table(jobs: List[Job]):
+def render_qstat_table_only(include_complete: bool = False):
 
+    jobs = app.queue.all_jobs
+
+    return render_qstat_table(jobs, include_complete=include_complete)
+
+
+def render_qtop_table(jobs: List[Job]):
+    """
+    Renders a table showing which processor cores are being used
+    """
     proc_map = {}
     for job in jobs:
         if (job.cores) and (not job.completed):
@@ -51,6 +60,12 @@ def render_qtop_table(jobs: List[Job]):
             if proc in proc_map:
                 job: Job = proc_map[proc]
                 row.append(str(job.job_id))
+            elif proc in (0, 1):
+                row.append('#')  # do not use first two processors ever
+            elif proc >= app.pool.CPUManager._system_cpu_count:
+                row.append('#')  # these are none existing cpus
+            elif proc not in app.pool.CPUManager.processors.keys():
+                row.append("-")  # existing cpus not being used as workers
             else:
                 row.append("")
         rows.append(row)

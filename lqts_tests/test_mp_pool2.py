@@ -3,7 +3,7 @@ import time
 
 # from lqts.lqts.schema import JobSpec, WorkItem
 from lqts.mp_pool2 import WorkItem, DynamicProcessPool
-from lqts.schema import JobSpec, Job, JobQueue, JobID
+from lqts.core.schema import JobSpec, Job, JobQueue, JobID
 
 
 def test_work_item():

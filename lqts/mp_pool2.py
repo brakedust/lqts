@@ -21,13 +21,11 @@ from dataclasses import dataclass
 from datetime import datetime
 # from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Dict, List, Tuple
 
 import psutil
 
-from lqts.job_runner import run_command
-from lqts.resources import CPUResourceManager, CPUResponse
-from lqts.schema import Job, JobID, JobQueue, JobStatus
+from lqts.resources import CPUResourceManager
+from lqts.core.schema import Job, JobID, JobQueue, JobStatus
 from lqts.version import VERSION
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
@@ -44,7 +42,7 @@ class WorkItem:
     """
 
     job: Job
-    cores: List = None
+    cores: list = None
 
     mark: int = 0
 
@@ -249,7 +247,7 @@ class DynamicProcessPool:
 
         self.manager_delay = manager_delay  # delay in manager thread loop
 
-        self._work_items: Dict[JobID, WorkItem] = {}
+        self._work_items: dict[JobID, WorkItem] = {}
 
         # self._queue = deque()
 

@@ -2,13 +2,13 @@ import os
 from pathlib import Path
 import requests
 import click
-import ujson
+from itertools import chain
+import json
 
-from lqts.schema import JobSpec, JobID
+from lqts.core.schema import JobSpec, JobID
 from .click_ext import OptionNargs
 
-import lqts.environment
-from lqts.config import Configuration
+from lqts.core.config import Configuration
 
 
 if Path(".env").exists():
@@ -18,7 +18,35 @@ else:
 
 
 def encode_path(p):
+    """
+    Replaces backslashes in paths with forward slashes
+    """
     return p.replace("\\", "/")
+
+
+def get_job_ids(job_id_str: str):
+    """
+    Gets the JobID whether job_id_str refers to a single job or a job group
+    The server is queried in the case that a job group is specified.
+    A job group may be specified with simply the group number ("21") or
+    with an asterisk ("21.*")
+    """
+    is_job_group = ((".") not in job_id_str) or (job_id_str.endswith(".*"))
+
+    if is_job_group:
+        gnum = job_id_str.partition('.')[0]
+        resp = requests.get(f"{config.url}/api_v1/jobgroup?group_number={int(gnum)}")
+        # print(resp.url, resp.raw)
+        # print(resp.json())
+        # for jid in resp.json():
+        #     print(f"{type(jid)} -- {jid=}")
+
+        try:
+            return [JobID(**jid) for jid in resp.json()]
+        except json.decoder.JSONDecodeError:
+            return []
+    else:
+        return JobID.parse_obj(job_id_str)
 
 
 @click.command("qsub")
@@ -87,14 +115,7 @@ def qsub(
 
     working_dir = encode_path(os.getcwd())
 
-    if len(depends) == 1 and " " in depends[0]:
-        depends = depends[0].split()
-
-    # print(depends)
-    if depends:
-        depends = [JobID.parse_obj(d) for d in depends]
-    else:
-        depends = []
+    depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     if walltime:
         if ":" in walltime:
@@ -123,7 +144,7 @@ def qsub(
     config.port = port
     config.ip_address = ip_address
 
-    response = requests.post(f"{config.url}/qsub", json=[job_spec.dict()])
+    response = requests.post(f"{config.url}/api_v1/qsub", json=[job_spec.dict()])
 
     if response.status_code == 200:
         if debug:
@@ -219,8 +240,7 @@ def qsub_cmulti(
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    if depends:
-        depends = [JobID.parse_obj(d) for d in depends]
+    depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     for f in files:
         if changewd:
@@ -253,7 +273,7 @@ def qsub_cmulti(
     config.port = port
     config.ip_address = ip_address
 
-    response = requests.post(f"{config.url}/qsub", json=job_specs)
+    response = requests.post(f"{config.url}/api_v1/qsub", json=job_specs)
 
     if response.status_code == 200:
         if debug:
@@ -334,7 +354,7 @@ def qsub_multi(
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    depends = [JobID.parse(d) for d in depends]
+    depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     for command in commands:
         # print(f, print(args))
@@ -363,7 +383,7 @@ def qsub_multi(
     config.port = port
     config.ip_address = ip_address
 
-    response = requests.post(f"{config.url}/qsub", json=job_specs)
+    response = requests.post(f"{config.url}/api_v1/qsub", json=job_specs)
 
     if response.status_code == 200:
         if debug:
@@ -465,7 +485,7 @@ def _qsub_argfile(
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    depends = [JobID.parse_obj(d) for d in depends]
+    depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     with open(argfile) as f:
 
@@ -497,7 +517,7 @@ def _qsub_argfile(
     config.port = port
     config.ip_address = ip_address
 
-    response = requests.post(f"{config.url}/qsub", json=job_specs)
+    response = requests.post(f"{config.url}/api_v1/qsub", json=job_specs)
 
     if response.status_code == 200:
         if debug:

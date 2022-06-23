@@ -1,6 +1,6 @@
 import pytest
 
-from lqts.schema import JobID
+from lqts.core.schema import JobID
 
 
 def test_job_id():

@@ -4,7 +4,7 @@ from itertools import cycle
 
 import pytest
 
-from lqts.schema import Job, JobID, JobQueue, JobSpec, JobStatus
+from lqts.core.schema import Job, JobID, JobQueue, JobSpec, JobStatus
 from tests.data import data_path
 
 hello = os.path.join(data_path, "echo_it.bat") + " hello"

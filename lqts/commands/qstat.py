@@ -5,11 +5,10 @@ import os
 
 import ujson
 
-from lqts.config import Configuration
-from lqts.schema import Job, JobID
+from lqts.core.config import Configuration
+from lqts.core.schema import Job, JobID
 import lqts.displaytable as dt
 
-import lqts.environment
 
 if Path(".env").exists():
     config = Configuration.load_env_file(".env")
@@ -49,7 +48,7 @@ def qstat(
     config.port = port
     config.ip_address = ip_address
 
-    response = requests.get(f"{config.url}/qstat", json=options)
+    response = requests.get(f"{config.url}/api_v1/qstat", json=options)
 
     if debug:
         print(response.text)

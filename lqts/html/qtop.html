@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>LoQuTuS - Queue Status </title>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="120">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.19/js/dataTables.bootstrap4.min.js"></script>
+
+    <script src="https://unpkg.com/htmx.org@1.7.0"></script>
+    <style>
+        /* .fakeimg {
+      height: 100px;
+      background: #aaa;
+  } */
+    </style>
+</head>
+
+<body>
+    <div class="container" style="background:steelblue">
+        <h1 style="text-align:center;color: white">LoQuTuS</h1>
+        <h2 style="text-align:center;color: white"> Queue Status </h1>
+    </div>
+
+
+
+
+    <div class="container">
+        <div class="row">
+            <div class="col-sm">
+                <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=yes"
+                    role="button">Include Completed</a>
+                <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=no"
+                    role="button">Exclude Completed</a>
+
+            </div>
+
+
+            <div class="col-sm">
+
+
+                <div class="row">
+                    <form action="/workers" method="post">
+                        <label class="lead" style="margin-right:5px" for="count">Worker Count</label>
+
+                        <input type="text" id="count" name="count" placeholder="48" style="width:60px;margin-right:5px">
+
+                        <input class="btn btn-danger" type="submit" value="Submit">
+                    </form>
+                </div>
+
+                <div class="row">
+                    <form action="/workers" method="post">
+                        <label class="lead" style="margin-right:5px" for="count">Worker Count</label>
+
+                        <input type="text" id="count" name="count" placeholder="48" style="width:60px;margin-right:5px">
+
+                        <input class="btn btn-danger" type="submit" value="Submit">
+                    </form>
+                </div>
+                <!-- <div hx-target="this" hx-swap="outerHTML">
+                    <div><label>First Name</label>: Joe</div>
+                    <div><label>Last Name</label>: Blow</div>
+                    <div><label>Email</label>: joe@blow.com</div>
+                    <button hx-get="/contact/1/edit" class="btn btn-primary">
+                    Click To Edit
+                    </button>
+                </div> -->
+
+
+            </div>
+
+
+        </div>
+    </div>
+
+    <div class="container">
+        <p class="lead"> R:20 Q:0 D:0 C:0 </p>
+    </div>
+
+
+    <div class="container">
+
+        <table id="QstatTable" class="table table-sm display">
+            <thead class="thead-dark" style="text-align:center;">
+
+
+                <th>ID</th>
+
+                <th>St</th>
+
+                <th>Command</th>
+
+                <th>Walltime</th>
+
+                <th>WorkingDir</th>
+
+                <th>Dependencies</th>
+
+            </thead>
+
+
+            <tr style="text-align: center;">
+
+                <td>1.000</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 0
+                </td>
+
+                <td>0:00:13.318141</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.001</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 1
+                </td>
+
+                <td>0:00:13.253138</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.002</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 2
+                </td>
+
+                <td>0:00:13.177141</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.003</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 3
+                </td>
+
+                <td>0:00:13.111145</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.004</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 4
+                </td>
+
+                <td>0:00:13.035151</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.005</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 5
+                </td>
+
+                <td>0:00:12.957109</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.006</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 6
+                </td>
+
+                <td>0:00:12.835157</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.007</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 7
+                </td>
+
+                <td>0:00:12.766161</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.008</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 8
+                </td>
+
+                <td>0:00:12.688163</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.009</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 9
+                </td>
+
+                <td>0:00:12.623166</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.010</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 10
+                </td>
+
+                <td>0:00:12.548169</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.011</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 11
+                </td>
+
+                <td>0:00:12.484176</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.012</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 12
+                </td>
+
+                <td>0:00:12.404178</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.013</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 13
+                </td>
+
+                <td>0:00:12.326171</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.014</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 14
+                </td>
+
+                <td>0:00:12.262181</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.015</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 15
+                </td>
+
+                <td>0:00:12.197183</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.016</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 16
+                </td>
+
+                <td>0:00:12.134339</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.017</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 17
+                </td>
+
+                <td>0:00:12.070341</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.018</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 18
+                </td>
+
+                <td>0:00:11.992342</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+            <tr style="text-align: center;">
+
+                <td>1.019</td>
+
+                <td>R</td>
+
+                <td>sleepy.bat argument 19
+                </td>
+
+                <td>0:00:11.927344</td>
+
+                <td>C:/Users/CampbellBL/work/src/python_src/lqts</td>
+
+                <td></td>
+
+            </tr>
+
+
+
+
+            <table id="QTopTable" class="table table-sm display">
+                <thead class="thead-dark" style="text-align:center;">
+
+                    <th></th>
+                    <th>1</th>
+                    <th>2</th>
+                    <th>3</th>
+                    <th>4</th>
+                    <th>5</th>
+                    <th>6</th>
+                    <th>7</th>
+                    <th>8</th>
+
+                </thead>
+                </thead>
+
+
+                <tr style="text-align: center;">
+                    <td>1</td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td>1.000</td>
+
+                    <td></td>
+
+                    <td>1.001</td>
+
+                    <td></td>
+
+                    <td>1.002</td>
+
+                    <td></td>
+
+                </tr>
+
+                <tr style="text-align: center;">
+                    <td>2</td>
+
+                    <td>1.003</td>
+
+                    <td></td>
+
+                    <td>1.004</td>
+
+                    <td></td>
+
+                    <td>1.005</td>
+
+                    <td></td>
+
+                    <td>1.006</td>
+
+                    <td></td>
+
+                </tr>
+
+                <tr style="text-align: center;">
+                    <td>3</td>
+
+                    <td>1.007</td>
+
+                    <td></td>
+
+                    <td>1.008</td>
+
+                    <td></td>
+
+                    <td>1.009</td>
+
+                    <td></td>
+
+                    <td>1.010</td>
+
+                    <td></td>
+
+                </tr>
+
+                <tr style="text-align: center;">
+                    <td>4</td>
+
+                    <td>1.011</td>
+
+                    <td></td>
+
+                    <td>1.012</td>
+
+                    <td></td>
+
+                    <td>1.013</td>
+
+                    <td></td>
+
+                    <td>1.014</td>
+
+                    <td></td>
+
+                </tr>
+
+                <tr style="text-align: center;">
+                    <td>5</td>
+
+                    <td>1.015</td>
+
+                    <td></td>
+
+                    <td>1.016</td>
+
+                    <td></td>
+
+                    <td>1.017</td>
+
+                    <td></td>
+
+                    <td>1.018</td>
+
+                    <td></td>
+
+                </tr>
+
+                <tr style="text-align: center;">
+                    <td>6</td>
+
+                    <td>1.019</td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                </tr>
+
+                <tr style="text-align: center;">
+                    <td>7</td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                </tr>
+
+                <tr style="text-align: center;">
+                    <td>8</td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                    <td></td>
+
+                </tr>
+
+
+            </table>
+    </div>
+
+
+    <script>
+
+
+
+        $(document).ready(function () {
+            $('#QstatTable').DataTable(
+                {
+                    paging: false
+
+                }
+            );
+
+            var i;
+            var row;
+            var t = document.getElementById("QstatTable");
+
+            for (i = 0; i < t.rows.length; i++) {
+                row = t.rows[i]
+                if (row.cells[1].innerHTML == "R") {
+                    // running
+                    row.style.backgroundColor = "#007bff";
+                    row.style.color = "white";
+                }
+                else if (row.cells[1].innerHTML == "Q") {
+                    // queued
+
+                    if (row.cells[5].innerHTML.startsWith("-")) {
+                        row.style.color = "white";
+                        row.style.backgroundColor = "green";
+                    }
+                    else {
+                        // queued, has incomplete dependenceis
+                        row.style.backgroundColor = "lightgreen";
+                    }
+                }
+                else if (row.cells[1].innerHTML == "C") {
+                    row.style.color = "#999 ";
+                }
+                else if (row.cells[1].innerHTML == "D") {
+                    row.style.backgroundColor = "#ffcccc";
+                    row.style.color = "slategrey";
+                }
+
+            }
+        });
+
+
+        $(document).ready(function () {
+            $('#QTopTable').DataTable(
+                {
+                    paging: false
+
+                }
+            );
+
+            var i;
+            var row;
+            var t = document.getElementById("QTopTable");
+
+            for (i = 1; i < t.rows.length; i++) {
+                row = t.rows[i]
+
+                for (j = 1; j < 9; j++) {
+                    if (row.cells[j].innerHTML != "") {
+                        row.cells[j].style.backgroundColor = "#00bb00";
+                    }
+                    else {
+                        row.cells[j].style.backgroundColor = "#d7e2f4";
+                    }
+                }
+
+
+            }
+        });
+
+    </script>
+
+</body>
+
+</html>

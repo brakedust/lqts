@@ -1,12 +1,9 @@
-import os
 from multiprocessing import cpu_count
-from lqts.config import Configuration
-import requests
-import click
 from pathlib import Path
 
-from .click_ext import OptionNargs
-
+import click
+import requests
+from lqts.core.config import Configuration
 import lqts.environment
 
 if Path(".env").exists():
@@ -31,15 +28,15 @@ def qworkers(count, debug=False, port=config.port, ip_address=config.ip_address)
 
     if count:
         count = int(count)
-        response = requests.post("{}/workers?count={}".format(config.url, count))
+        response = requests.post("{}/api_v1/workers?count={}".format(config.url, count))
         print("Worker pool resized to {} workers".format(int(response.text)))
     else:
         response = ""
         try:
-            response = requests.get("{}/workers".format(config.url))
+            response = requests.get("{}/api_v1/workers".format(config.url))
             print("Worker pool size is {}".format(int(response.text)))
-        except:
-            print(response)
+        except:  # nopep8
+            print(response.text)
 
 
 if __name__ == "__main__":

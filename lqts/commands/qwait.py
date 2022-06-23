@@ -1,25 +1,18 @@
-import os
-import time
 import sys
-
+import time
 # import chardet
 from pathlib import Path
 from string import digits
 
-digits += ". "
-
-import requests
 import click
-import ujson
+import requests
 import tqdm
+import ujson
+from lqts.core.config import Configuration
+from lqts.core.schema import Job, JobID
 
-from lqts.schema import JobSpec, JobID, JobStatus, Job
 
-# from lqts.click_ext import OptionNargs
-
-import lqts.environment
-
-from lqts.config import Configuration
+digits += ". "
 
 
 if Path(".env").exists():
@@ -64,7 +57,7 @@ def qwait(
     for job_id in list(input_job_ids):
         if "." not in job_id:
             # A job group was specified
-            response = requests.get(f"{config.url}/jobgroup?group_number={int(job_id)}")
+            response = requests.get(f"{config.url}/api_v1/jobgroup?group_number={int(job_id)}")
             # print(response.json())
             if response.status_code == 200:
                 job_ids.extend([JobID(**item) for item in response.json()])
@@ -81,7 +74,7 @@ def qwait(
     while not done_waiting:
         options = {"completed": False}
 
-        response = requests.get(f"{config.url}/qstat", json=options)  # , json=message)
+        response = requests.get(f"{config.url}/api_v1/qstat", json=options)  # , json=message)
 
         queued_or_running_job_ids = set(
             Job(**ujson.loads(item)).job_id for item in response.json()

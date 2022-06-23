@@ -134,9 +134,9 @@ def recursive_glob(path, pattern):
 
 def parse_bool(val):
 
-    if str(val).lower() in ("true", "t", "1"):
+    if str(val).lower() in ("true", "t", "1", "yes", "y"):
         return True
-    elif str(val).lower() in ("false", "f", "0"):
+    elif str(val).lower() in ("false", "f", "0", "no", "n"):
         return False
     else:
         raise ValueError("Could not parse {0} to bool".format(val))
@@ -144,7 +144,8 @@ def parse_bool(val):
 
 def try_cast(value, types):
     """
-    Attempts to cast value into one of *types*.  It tries in order.  It returns on the first successful cast.
+    Attempts to cast value into one of *types*.  It tries in order.
+    It returns on the first successful cast.
     :param value:
     :param types:
     :return:
@@ -152,7 +153,7 @@ def try_cast(value, types):
     for ty in types:
         try:
             return ty(value)
-        except:
+        except:  # nopep8
             pass
     return value
 

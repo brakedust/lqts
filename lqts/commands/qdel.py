@@ -1,15 +1,16 @@
 import requests
 import click
-import os
+import sys
 from pathlib import Path
-import ujson
 
-from lqts.schema import Job
-from lqts.config import Configuration
-import lqts.displaytable as dt
-from lqts.schema import JobID
+from lqts.core.schema import Job
+from lqts.core.config import Configuration
 
-import lqts.environment
+from lqts.core.schema import JobID
+
+from string import digits
+digits += ". "
+
 
 if Path(".env").exists():
     config = Configuration.load_env_file(".env")
@@ -28,7 +29,6 @@ else:
 @click.option("--ip_address", default=config.ip_address, help="The IP address of the server")
 def qdel(job_ids, debug=False, port=config.port, ip_address=config.ip_address):
     """Delete jobs from the queue"""
-
 
     if not job_ids and sys.stdin.seekable():
         # get the job ids from standard input
@@ -49,7 +49,7 @@ def qdel(job_ids, debug=False, port=config.port, ip_address=config.ip_address):
         if "." not in job_id:
             # A job group was specified
             response = requests.get(
-                f"{config.url}/jobgroup?group_number={int(job_id)}"
+                f"{config.url}/api_v1/jobgroup?group_number={int(job_id)}"
             )
             # print(response.json())
             if response.status_code == 200:
@@ -60,6 +60,6 @@ def qdel(job_ids, debug=False, port=config.port, ip_address=config.ip_address):
 
     job_ids = [jid.dict() for jid in set(job_ids)]
 
-    response = requests.post(f"{config.url}/qdel", json=job_ids)
+    response = requests.post(f"{config.url}/api_v1/qdel", json=job_ids)
 
     print("Jobs deleted: " + response.text)

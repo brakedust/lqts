@@ -9,7 +9,7 @@ import platform
 
 from lqts.server import app
 from lqts.commands.qsub import qsub
-from lqts.schema import Job, JobSpec, JobID, JobQueue
+from lqts.core.schema import Job, JobSpec, JobID, JobQueue
 
 from tests.data import data_path
 

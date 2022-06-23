@@ -30,7 +30,7 @@ To get a logger:
 """
 
 from typing import Union
-import logging
+# import logging
 from datetime import datetime
 from enum import IntEnum
 from pathlib import Path
@@ -61,7 +61,7 @@ class Logger:
         self.handlers = {'console': ConsoleHandler(level=level)}
 
         if filename:
-            self.handlers['file'] = FileHandler(level=Level.WARNING, filename=filename)
+            self.handlers['file'] = FileHandler(level=level, filename=filename)
 
     def log(self, level: Union[Level, int], message: str):
 
@@ -82,7 +82,7 @@ class Logger:
             handler.log_exception(level, message)
 
     def exception(self, message):
-        self._log_exception(level, message)
+        self._log_exception(self.level, message)
 
 
 class ConsoleHandler:
@@ -99,6 +99,7 @@ class ConsoleHandler:
         if level >= self.level:
             print(f"{datetime.now().isoformat()} | {level.name} | {message}")
             print(traceback.format_exc())
+
 
 class FileHandler:
 
@@ -117,11 +118,11 @@ class FileHandler:
             self.fid.write(traceback.format_exc() + '\n')
 
 
-
 def getLogger(name, level=Level.INFO, filename=None):
 
     if name in Logger._instances:
         return Logger._instances[name]
     else:
         logger = Logger(name=name, level=level, filename=filename)
+        Logger._instances[name] = logger
         return logger

@@ -4,7 +4,7 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 
-from .schema import Job, JobID, JobStatus
+from lqts.core.schema import Job, JobID, JobStatus
 
 
 def run_command(job: Job):
@@ -67,7 +67,8 @@ Started: {}
     p = None
 
     fid.write(
-        "\n-----------------------------------------------\nSTDOUT\n-----------------------------------------------\n"
+        "\n-----------------------------------------------\n" +
+        "STDOUT\n-----------------------------------------------\n"
     )
 
     def get_output(p, stderr=False):
@@ -114,7 +115,8 @@ Started: {}
             serr = p.stderr.decode()
 
         fid.write(
-            "\n-----------------------------------------------\nSTDERR\n-----------------------------------------------\n"
+            "\n-----------------------------------------------\n" +
+            "STDERR\n-----------------------------------------------\n"
         )
         fid.write(serr)
         if not job.job_spec.log_file:

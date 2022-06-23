@@ -1,77 +1,167 @@
 
+
 <script>
 
-
-
+    // Main QStat Table listing the jobs
     $(document).ready(function () {
-        $('#QstatTable').DataTable(
-            {
-                paging: false
 
-            }
-        );
+        FormatQstatTable();
+        FormatQTopTable();
+    });
+
+    function FormatQstatTable(){
+        $('#QstatTable').DataTable({
+            destroy: true,
+            order: [[ 0, "asc" ]],
+            paging: false
+        });
 
         var i;
         var row;
         var t = document.getElementById("QstatTable");
 
+        if  (t.rows.length == 0) { return;}
+
         for (i = 0; i < t.rows.length; i++) {
             row = t.rows[i]
-            if (row.cells[1].innerHTML == "R") {
+            status = row.cells[1].innerHTML
+            if (status == "R") {
                 // running
-                row.style.backgroundColor = "#007bff";
+                row.style.backgroundColor = "green";
                 row.style.color = "white";
             }
-            else if (row.cells[1].innerHTML == "Q") {
+            else if (status == "Q") {
                 // queued
 
                 if (row.cells[5].innerHTML.startsWith("-")) {
                     row.style.color = "white";
-                    row.style.backgroundColor = "green";
+                    row.style.backgroundColor = "blue";
                 }
                 else {
                     // queued, has incomplete dependenceis
-                    row.style.backgroundColor = "lightgreen";
+                    row.style.color = "white";
+                    row.style.backgroundColor = "blue";
                 }
             }
-            else if (row.cells[1].innerHTML == "C") {
+            else if (status == "C") {
                 row.style.color = "#999 ";
             }
-            else if (row.cells[1].innerHTML == "D") {
+            else if (status == "D") {
                 row.style.backgroundColor = "#ffcccc";
                 row.style.color = "slategrey";
             }
 
         }
-    });
 
+    }
 
-     $(document).ready(function () {
-            $('#QTopTable').DataTable(
+    function FormatQTopTable(){
+        $('#QTopTable').DataTable(
                 {
+                    destroy: true,
                     paging: false
-
                 }
-            );
+        );
 
-            var i;
-            var row;
-            var t = document.getElementById("QTopTable");
+        var i;
+        var row;
+        var t = document.getElementById("QTopTable");
 
-            for (i = 1; i < t.rows.length; i++) {
-                row = t.rows[i]
+        for (i = 1; i < t.rows.length; i++) {
+            row = t.rows[i]
 
-                for (j = 1; j < 9; j++) {
-                    if (row.cells[j].innerHTML != "") {
-                        row.cells[j].style.backgroundColor = "#00bb00";
-                    }
-                    else {
-                        row.cells[j].style.backgroundColor = "#d7e2f4";
-                    }
+            for (j = 1; j < 9; j++) {
+                if (row.cells[j].innerHTML == "#") {
+                    row.cells[j].style.backgroundColor = "#222222";
                 }
-
-
+                else if (row.cells[j].innerHTML == "-") {
+                    row.cells[j].style.backgroundColor = "#444444";
+                }
+                else if (row.cells[j].innerHTML != "") {
+                    row.cells[j].style.backgroundColor = "#00bb00";
+                }
+                else {
+                    row.cells[j].style.backgroundColor = "#d7e2f4";
+                }
             }
+        }
+    }
+
+    function DeleteJob(job_id){
+        url = '/api_v1/qdel';
+
+        job_parts = String(job_id).split(".");
+        data = [{group: job_parts[0], index: job_parts[1]}];
+
+
+        fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
         });
+    }
+
+    function FetchQstatTable()
+    {
+        url = "/page_fragments/qstat_table?complete=no";
+        const response = fetch(url, {
+            method: "GET"
+        })
+        .then((response) => {
+            return response.text();
+        })
+        .then((html) => {
+            document.getElementById("QstatTableContainer").innerHTML = html;
+            FormatQstatTable();
+        });
+
+    }
+
+    function FetchQTopTable()
+    {
+        url = "/page_fragments/qtop_table";
+        const response = fetch(url, {
+            method: "GET"
+        })
+        .then((response) => {
+            return response.text();
+        })
+        .then((html) => {
+            document.getElementById("QTopTableContainer").innerHTML = html;
+            FormatQTopTable();
+        });
+
+    }
+
+    function SetWorkers() {
+        // Sets the number of workers in the pool
+        new_worker_count = document.getElementById("count").value;
+
+        data = {count: new_worker_count};
+        url = '/api_v1/workers?count=' + new_worker_count;
+
+        fetch(url, {
+            method: "POST"
+            }).then(res => {
+            console.log("Request complete! response:", res);
+            });
+
+    }
+
+    function ClearCompletedJobs() {
+        // Clears the completed jobs out of the queue
+        url = '/api_v1/clear_completed?really=true';
+
+        fetch(url, {
+            method: "POST"
+            }).then(res => {
+            console.log("Request complete! response:", res);
+            });
+    }
+
+    setInterval(FetchQstatTable, 10000);
+    setInterval(FetchQTopTable, 10000);
 
 </script>

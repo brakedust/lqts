@@ -3,8 +3,8 @@ import subprocess
 from pathlib import Path
 
 import click
-import lqts.environment
-from lqts.config import Configuration
+from lqts.core.config import Configuration
+
 
 if Path(".env").exists():
     config = Configuration.load_env_file(".env")
@@ -27,9 +27,9 @@ def qstart(no_popout=False, port=config.port):  # , ip_address=config.ip_address
     """Starts the LQTS queue server"""
 
     if no_popout:
-        args = ["uvicorn", "--port", str(port), "--log-level", "warning", "lqts.server:app"]
+        args = ["uvicorn", "--port", str(port), "--log-level", "warning", "lqts.main:app"]
     else:
-        args = ["start", "uvicorn", "--port", str(port), "--log-level", "warning", "lqts.server:app"]  # nopep8
+        args = ["start", "uvicorn", "--port", str(port), "--log-level", "warning", "lqts.main:app"]  # nopep8
     print(" ".join(args))
     os.environ['LQTS_PORT'] = str(port)
     subprocess.call(" ".join(args), shell=True)

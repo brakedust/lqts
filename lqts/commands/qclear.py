@@ -5,10 +5,9 @@ from pathlib import Path
 
 import ujson
 
-from lqts.schema import Job
-from lqts.config import Configuration
+from lqts.core.schema import Job
+from lqts.core.config import Configuration
 
-import lqts.environment
 
 if Path(".env").exists():
     config = Configuration.load_env_file(".env")
@@ -34,5 +33,5 @@ def qclear(yes=False, debug=False, port=config.port, ip_address=config.ip_addres
     config.ip_address = ip_address
 
     if answer.lower() in ("y", "yes"):
-        response = requests.post(f"{config.url}/qclear?really=true")
+        response = requests.post(f"{config.url}/api_v1/qclear?really=true")
         print(response.text)

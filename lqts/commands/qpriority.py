@@ -1,22 +1,14 @@
-import os
-import time
 import sys
 from pathlib import Path
 from string import digits
 
+import click
+import requests
+from lqts.core.config import Configuration
+from lqts.core.schema import JobID
+
 digits += ". "
 
-import requests
-import click
-import ujson
-import tqdm
-
-from lqts.schema import JobSpec, JobID, JobStatus, Job
-from lqts.config import Configuration
-
-# from lqts.click_ext import OptionNargs
-
-import lqts.environment
 
 if Path(".env").exists():
     config = Configuration.load_env_file(".env")
@@ -54,7 +46,9 @@ def qpriority(
     for job_id in list(input_job_ids):
         if "." not in job_id:
             # A job group was specified
-            response = requests.get(f"{config.url}/jobgroup?group_number={int(job_id)}")
+            response = requests.get(
+                f"{config.url}/api_v1/jobgroup?group_number={int(job_id)}"
+            )
             # print(response.json())
             if response.status_code == 200:
                 job_ids.extend([JobID(**item) for item in response.json()])
@@ -66,9 +60,13 @@ def qpriority(
     job_ids = [jid.dict() for jid in set(job_ids)]
     # data = {"priority": priority, "job_ids": job_ids}
     # print(data)
-    response = requests.post(f"{config.url}/qpriority", params={"priority":priority}, json=job_ids)
+    response = requests.post(
+        f"{config.url}/api_v1/qpriority",
+        params={"priority": priority}, json=job_ids
+    )
 
     print(response.text)
+
 
 if __name__ == "__main__":
     qpriority()

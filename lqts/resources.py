@@ -2,6 +2,8 @@ from multiprocessing import cpu_count
 from typing import NamedTuple
 from enum import Enum
 
+SYSTEM_CPU_COUNT = cpu_count()
+
 
 class CPUResponse(NamedTuple):
 
@@ -16,13 +18,15 @@ class ProcState(Enum):
 
 
 class CPUResourceManager:
-    def __init__(self, cpu_count=max(cpu_count() - 2, 1)) -> None:
+    def __init__(self, cpu_count=max(SYSTEM_CPU_COUNT - 2, 1)) -> None:
 
         self.cpu_count = cpu_count
 
         self.processors = {i: ProcState.idle for i in range(2, self.cpu_count+2, 2)} | {
             i: ProcState.idle for i in range(3, self.cpu_count+2, 2)
         }
+
+        self._system_cpu_count = SYSTEM_CPU_COUNT
 
     def cpu_avalaible_count(self):
         available = [
@@ -60,11 +64,11 @@ class CPUResourceManager:
             return
 
         elif new_cpu_count > self.cpu_count:
-            for i in range(self.cpu_count, new_cpu_count):
+            for i in range(self.cpu_count+2, new_cpu_count+2):
                 self.processors[i] = ProcState.idle
 
         elif new_cpu_count < self.cpu_count:
-            for i in range(new_cpu_count, self.cpu_count):
+            for i in range(new_cpu_count+2, self.cpu_count+2):
                 self.processors.pop(i)
 
         self.cpu_count = new_cpu_count

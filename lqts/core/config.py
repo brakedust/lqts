@@ -4,12 +4,10 @@ from multiprocessing import cpu_count
 from os.path import expanduser, join
 import os
 
-from typing import Any, Deque, Dict, List, Union
-from uuid import uuid4
-
 from pydantic import BaseModel, BaseSettings
 
 from lqts.util import parse_bool
+import lqts.environment
 
 
 class Configuration(BaseModel):
@@ -29,6 +27,10 @@ class Configuration(BaseModel):
 
     resume_on_start_up: bool = parse_bool(
         os.environ.get("LQTS_RESUME_ON_START_UP", False)
+    )
+
+    debug: bool = parse_bool(
+        os.environ.get("LQTS_DEBUG", False)
     )
 
     @property

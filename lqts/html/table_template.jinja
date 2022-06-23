@@ -5,13 +5,18 @@
         {% for item in header %}
         <th>{{ item }}</th>
         {% endfor %}
+        <th>DEL</th>
     </thead>
 
     {% for row in rows %}
         <tr style="text-align: center;">
+
         {% for item in row %}
             <td>{{ item }}</td>
         {% endfor %}
+
+        <td><button type="button" class="btn btn-danger mr-1 mt-1" style="padding:5" onclick="DeleteJob({{ row[0] }})">Del</button></td>
+
         </tr>
     {% endfor %}
 
