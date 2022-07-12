@@ -1,29 +1,35 @@
 [tool.poetry]
 name = "lqts"
-version = "1.0.0"
+version = "1.0.39"
 description = ""
 authors = ["Bradley L Campbell <bradley.campbell@navy.mil>"]
+include = ["version.py"]
+
+[tool.poetry.scripts]
+qsub = "lqts.commands.qsub:qsub"
+qsub-multi = "lqts.commands.qsub:qsub_multi"
+qsub-cmulti = "lqts.commands.qsub:qsub_cmulti"
+qsub-argfile = "lqts.commands.qsub:qsub_argfile_command"
+qsub-test = "lqts.commands.qsub:qsub_test"
+qstart = "lqts.commands.qstart:qstart"
+qstat = "lqts.commands.qstat:qstat"
+qclear = "lqts.commands.qclear:qclear"
+qdel = "lqts.commands.qdel:qdel"
+qworkers = "lqts.commands.qworkers:qworkers"
+qwait = "lqts.commands.qwait:qwait"
+qsummary = "lqts.commands.qsummary:qsummary"
+qpriority = "lqts.commands.qpriority:qpriority"
 
 [tool.poetry.dependencies]
 python = "^3.10"
 fastapi = "^0.78.0"
-anyio = "3.6.1"
-asgiref = "3.5.2"
-certifi = "2022.6.15"
-charset-normalizer = "2.0.12"
 click = "^7.1.2"
-colorama = "0.4.5"
-h11 = "0.13.0"
-idna = "3.3"
 Jinja2 = "3.1.2"
-MarkupSafe = "2.1.1"
 psutil = "5.9.1"
 pydantic = "1.9.1"
 requests = "2.28.0"
-sniffio = "1.2.0"
 starlette = "0.19.1"
 tqdm = "4.64.0"
-typing_extensions = "4.2.0"
 ujson = "5.3.0"
 urllib3 = "1.26.9"
 uvicorn = "0.17.6"
@@ -31,6 +37,9 @@ uvicorn = "0.17.6"
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
 pytest-cov = "^2.10.1"
+sphinx = "^5.0.2"
+sphinx-pydantic = ">=0.1.1"
+m2r = "^0.2.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

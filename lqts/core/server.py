@@ -84,4 +84,11 @@ class Application(FastAPI):
             self.log = getLogger("lqts", Level.INFO)
 
 
-app = Application()
+app = None
+
+
+def get_app():
+    global app
+    if app is None:
+        app = Application()
+    return app

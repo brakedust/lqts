@@ -1,8 +1,10 @@
 from datetime import datetime
 from lqts.core.schema import Job, JobID, JobSpec, JobStatus, JobGroup
-from lqts.core.server import app
+from lqts.core import server
 
 API_VERSION = "api_v1"
+
+app = server.get_app()
 
 
 @app.get(f"/{API_VERSION}/qstat")

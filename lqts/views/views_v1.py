@@ -1,6 +1,9 @@
-from lqts.core.server import app
+from lqts.core import server
 from lqts.html.render_qstat import render_qstat_page, render_qstat_table, render_qtop_table
 from starlette.responses import HTMLResponse
+
+
+app = server.get_app()
 
 
 @app.get("/")

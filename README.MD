@@ -2,7 +2,7 @@
 
 **NOTE: The server is intended to be run as LOCAL HOST.  Opening to the network is strongly advised against.**
 
-# 1. Introduction
+## 1. Introduction
 
 LQTS (pronounced Locutus) is a *L*ightweight job *Q*ueueing *S*ystem.  Its purpose is to manage the
 execution of a large number of computational jobs, only exeucuting a fixed
@@ -19,7 +19,7 @@ The major concepts involved in this are:
       and executes the jobs
     * Worker - a child process of the server that executes the job
 
-# 2. Starting the Job Server
+## 2. Starting the Job Server
 
 LQST is a client/server app.  The server runs on localhost (IP address is 127.0.0.1) and port 9200.  The server has process pool and a queue that it uses to manage jobs that are submitted to it.  The server is started using the qstart.exe program.
 
@@ -39,7 +39,7 @@ by calling `qworkers.exe` with no arguments.  The number of workers can be
 dynamically adjusted by calling `qworkers.exe` with one argument that is the
 number of  workers desired.
 
-# 3. Server Configuration
+## 3. Server Configuration
 
 Ther server has several settings that can be adjusted by setting environment variables
 or by starting the server in a directory where a file name `.env` is
@@ -53,7 +53,7 @@ present.  Unless you have a specific requirement, it is not recommended to chang
 * LQTS_QUEUE_FILE – location of the file where LQTS writes its current queue every few minutes
 
 
-# 4. Job Submission
+## 4. Job Submission
 
 Several commands are available for different use cases to submit jobs to the queue.
 Each qsub command returns the job ID for the submitted job(s).
@@ -63,14 +63,14 @@ Each qsub command returns the job ID for the submitted job(s).
 * qsub-cmulti - submit mutliple jobs to the queue, where the command is the same but the input files are different
 * qsub-argfile - submit mutliple jobs to the queue, where each job is defined by a line if the given file
 
-## qsub
+### qsub
 
 The `qsub` command submits one job to the queue.
 
 Example:
 
-`
-qsub --help
+```
+$ qsub --help
 Usage: qsub COMMAND [qsub ARGS] -- [COMMAND ARGS]
 
   Submits one job to the queue
@@ -100,9 +100,9 @@ qsub ARGS:
                           process terminates.  [default: False]
 
   --help                  Show this message and exit.
-`
+```
 
-## qsub-cmulti
+### qsub-cmulti
 
 The `qsub-cmulti` command submits multiple jobs.  This command is used you have one
 command with multiple input files, each of which is a different job.  You should be
@@ -120,7 +120,7 @@ Example2:
 $ qsub-cmulti myprogram.exe *.in -- -arg1 --arg2 Arg2Value
 ```
 
-### Full Command Help
+#### Full Command Help
 
 ```
 Usage: qsub-cmulti COMMAND FILE_PATTERN [qsub-cmulti ARGS] -- [COMMAND args]
@@ -156,7 +156,7 @@ Options:
   --help                  Show this message and exit.
   ```
 
-## qsub-multi
+### qsub-multi
 
 The `qsub-multi` commnad submits multiple jobs.  This command is used if you have
 multiple executables or scripts that you want to submit.  You should be able to
@@ -168,7 +168,7 @@ Example:
 $ qsub-multi myprograms*.exe
 ```
 
-## qsub-argfile
+### qsub-argfile
 
 The `qsub-argfile` command submits mutliple jobs.  For this command you need one
 executable file and a text file.  Each line in the text file is represents a
@@ -201,7 +201,7 @@ contains any output that would have been written to the screen as well as some j
 performance information.
 
 
-# 5. Passing Additional Arguments to your Command
+## 5. Passing Additional Arguments to your Command
 
 After the command and input file/arg file, arguments are typically interpreted as
 being arguments passed to the qsub command itself and are not passed on to your
@@ -215,7 +215,7 @@ $ qsub myprogram.exe --log -- --flagForMyProgram true
 Here "`--log`" is consumed by the qsub command and "`--flagForMyProgram true`" is
 passed along to myprogram.exe when it is executed.
 
-# 6. Waiting for a job to complete
+## 6. Waiting for a job to complete
 
 The `qwait.exe` command will block until the specified jobs have completed.  If you
 have something you want to happen once a set of jobs has completed, use this.
@@ -236,7 +236,7 @@ Alternatively:
 $ qsub myprogram.exe --log -- --flagForMyProgram true | qwait
 ```
 
-# 7. Job Priority
+## 7. Job Priority
 
 Each job has a priortity associated with it.  Jobs with higher priority are executed
 before jobs with lower priority.  The `qsub` commands support a `--priority` argument.
@@ -244,11 +244,11 @@ There is also the `qpriority` command that allows you to change the priority of 
 job after it has been submitted.
 
 
-# 8. Deleting a Job
+## 8. Deleting a Job
 
 Use the `qdel` command to delete a job.
 
-# 9. Job Status and Summary
+## 9. Job Status and Summary
 
 The `qstat` and `qsummary` commands provide information about the state of jobs
 in the queue.  `qstat` provides information about each job and `qsummary` simply
@@ -258,7 +258,7 @@ You can also navigate to http://127.0.0.1:9200 (where 9200 is the port you have 
 running on) to see an HTML table of the current status.  This page auto-refreshes every
 two minutes.
 
-# 10. Testing your setup
+## 10. Testing your setup
 
 `qsub-test` provides an easy way to test that LQTS is functioning properly.  It
 writes a script that sleeps for a user defined amount of time and an argfile with a

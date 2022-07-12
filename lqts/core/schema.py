@@ -1,3 +1,18 @@
+"""
+=============
+shema Module
+=============
+
+This modules contains the main objects used to define and manage jobs and
+job queues.
+
+    * JobID
+    * JobSpec
+    * JobStats
+    * Job
+    * JobQueue
+"""
+
 import concurrent.futures as cf
 import enum
 import itertools
@@ -16,6 +31,13 @@ LOGGER = getLogger("lqts", Level.INFO)
 
 
 class JobID(BaseModel):
+    """
+    Represents the unique ID for the job that can be used to find the job.
+
+    A JobID consists of a group number and an index.  Client commands such as
+    qsub-multi and qsub-cmulti submit job groups, where each job as the same
+    group number but a different index.
+    """
 
     group: int = 1
     index: int = 0
@@ -87,6 +109,7 @@ class JobStatus(enum.Enum):
     Completed = "C"
     Deleted = "D"
     Error = "E"
+    Paused = "p"
 
 
 class JobSpec(BaseModel):
@@ -134,10 +157,10 @@ class Job(BaseModel):
     # def __eq__(self, other: "Job"):
     #     return self.job_spec.priority == other.job_spec.priority
 
-    @property
-    def can_run(self) -> bool:
-        # self.job_spec.depends
-        return len(self.job_spec.depends) == 0
+    # @property
+    # def can_run(self) -> bool:
+    #     # self.job_spec.depends
+    #     return len(self.job_spec.depends) == 0
 
     @property
     def walltime(self) -> timedelta:
@@ -165,10 +188,11 @@ class Job(BaseModel):
             return False
 
     def is_done(self) -> bool:
+        """Returns true if this job has completed or has been deleted"""
         return self.status in (JobStatus.Completed, JobStatus.Deleted)
 
     def as_table_row(self) -> list:
-
+        """Gets a list of Job attributes to show up in the qstatus tables"""
         if self.job_spec.depends:
             dependencies_str = " ".join(str(d) for d in self.job_spec.depends)
             # dependencies_str = textwrap.wrap(dependencies_str, width=40, initial_indent="<p>")
@@ -198,7 +222,10 @@ class Job(BaseModel):
 
 
 class JobGroup(BaseModel):
-
+    """
+    Represents a group of jobs with a common group number and
+    distinct indexes
+    """
     group_number: int = 0
     jobs: Dict[JobID, Job] = {}
 
@@ -211,7 +238,11 @@ class JobGroup(BaseModel):
 
 
 class JobQueue(BaseModel):
-
+    """
+    The JobQueue keeps track of all jobs and their states.
+    The DynamicProcessPool queries the JobQueue for the next job
+    and keeps it informed of when a job has finished.
+    """
     name: str = "default"
     queue_file: str = ""
     completed_limit: int = 500
@@ -234,30 +265,8 @@ class JobQueue(BaseModel):
 
     config: Configuration = Configuration()
 
-    # _log: Any =
-
-    # @property
-    # def log(self):
-
-    #     if not hasattr(self, '_log') or self._log is None:
-    #         setattr(self, '_log', getLogger("lqts", level=Level.INFO))
-    #     return self._log
-
-    # def __post_init__(self):
-
-    #     self._last_save = datetime(year=1995)
-    # def __init__(self, *args, start_manager_thread=False, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     if start_manager_thread:
-    #         self._start_manager_thread()
-
-    # def __post_init__(self):
-    #     if start_manager_thread:
-    #         self._start_manager_thread()
-    #     log =
-
     def start_up(self):
-        # self.log = LOGGER
+        """Start up the queue"""
         self._start_manager_thread()
 
     def on_queue_change(self, *args, **kwargs):
@@ -268,7 +277,11 @@ class JobQueue(BaseModel):
         self.is_dirty = True
 
     def get_job_group(self, group_id: int) -> List[Job]:
-        # pass
+        """
+        Given a job group_id, gets a list of jobs in the group.
+        The jobs returned are either running or queued.  Completed
+        jobs are not returned
+        """
         return [
             job
             for job in itertools.chain(
@@ -290,8 +303,10 @@ class JobQueue(BaseModel):
         return None, None
 
     def submit(self, job_specs: List[JobSpec]) -> List[JobID]:
-        # global LOGGER
-        # job_ids = []
+        """
+        Submits a list of job specs to the queue.  The result
+        is a list of jobs.  So a JobSpec gets submitted and turns into a Job
+        """
         group = JobGroup(group_number=self.next_group_number)
         self.job_groups[group.group_number] = group
         self.next_group_number += 1

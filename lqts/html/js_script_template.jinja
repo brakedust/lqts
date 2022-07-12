@@ -101,6 +101,8 @@
             },
             body: JSON.stringify(data)
         });
+
+        FetchAllData();
     }
 
     function FetchQstatTable()
@@ -148,6 +150,8 @@
             console.log("Request complete! response:", res);
             });
 
+        FetchAllData();
+
     }
 
     function ClearCompletedJobs() {
@@ -161,7 +165,11 @@
             });
     }
 
-    setInterval(FetchQstatTable, 10000);
-    setInterval(FetchQTopTable, 10000);
+    function FetchAllData()
+    {
+        FetchQstatTable();
+        FetchQTopTable();
+    }
+    setInterval(FetchAllData, 10000);
 
 </script>
