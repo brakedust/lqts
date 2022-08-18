@@ -34,7 +34,7 @@ def get_job_ids(job_id_str: str):
     is_job_group = ((".") not in job_id_str) or (job_id_str.endswith(".*"))
 
     if is_job_group:
-        gnum = job_id_str.partition('.')[0]
+        gnum = job_id_str.partition(".")[0]
         resp = requests.get(f"{config.url}/api_v1/jobgroup?group_number={int(gnum)}")
         # print(resp.url, resp.raw)
         # print(resp.json())
@@ -74,8 +74,10 @@ def get_job_ids(job_id_str: str):
     "--walltime",
     type=str,
     default=None,
-    help=("A amount of time a job is allowed to run.  " +
-          "It will be killed after this amount [NOT IMPLEMENTED YET]"),
+    help=(
+        "A amount of time a job is allowed to run.  "
+        + "It will be killed after this amount [NOT IMPLEMENTED YET]"
+    ),
 )
 @click.option(
     "--cores", type=int, default=1, help="Number of cores/threads required by the job"
@@ -115,7 +117,8 @@ def qsub(
 
     working_dir = encode_path(os.getcwd())
 
-    depends = list(chain(*[get_job_ids(d) for d in depends]))
+    if depends:
+        depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     if walltime:
         if ":" in walltime:
@@ -234,13 +237,16 @@ def qsub_cmulti(
 
     from glob import iglob
 
-    files = iglob(file_pattern)
+    files = list(iglob(file_pattern))
+    print(files)
+
     # print("file_patter:", file_pattern)
     # print(files)
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    depends = list(chain(*[get_job_ids(d) for d in depends]))
+    if depends:
+        depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     for f in files:
         if changewd:
@@ -354,7 +360,8 @@ def qsub_multi(
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    depends = list(chain(*[get_job_ids(d) for d in depends]))
+    if depends:
+        depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     for command in commands:
         # print(f, print(args))
@@ -485,7 +492,8 @@ def _qsub_argfile(
     job_specs = []
     working_dir = encode_path(os.getcwd())
 
-    depends = list(chain(*[get_job_ids(d) for d in depends]))
+    if depends:
+        depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     with open(argfile) as f:
 
@@ -557,8 +565,10 @@ def _qsub_argfile(
     "--walltime",
     type=str,
     default=None,
-    help=("A amount of time a job is allowed to run.  " +
-          "It will be killed after this amount [NOT IMPLEMENTED YET]"),
+    help=(
+        "A amount of time a job is allowed to run.  "
+        + "It will be killed after this amount [NOT IMPLEMENTED YET]"
+    ),
 )
 @click.option(
     "--cores", type=int, default=1, help="Number of cores/threads required by the job"
