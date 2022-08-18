@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "lqts"
-version = "1.0.39"
+version = "1.0.41"
 description = ""
 authors = ["Bradley L Campbell <bradley.campbell@navy.mil>"]
-include = ["version.py"]
+include = ["lqts/version.py"]
 
 [tool.poetry.scripts]
 qsub = "lqts.commands.qsub:qsub"
