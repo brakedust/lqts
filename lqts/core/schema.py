@@ -109,7 +109,7 @@ class JobStatus(enum.Enum):
     Completed = "C"
     Deleted = "D"
     Error = "E"
-    Paused = "p"
+    Paused = "P"
 
 
 class JobSpec(BaseModel):
@@ -226,6 +226,7 @@ class JobGroup(BaseModel):
     Represents a group of jobs with a common group number and
     distinct indexes
     """
+
     group_number: int = 0
     jobs: Dict[JobID, Job] = {}
 
@@ -243,6 +244,7 @@ class JobQueue(BaseModel):
     The DynamicProcessPool queries the JobQueue for the next job
     and keeps it informed of when a job has finished.
     """
+
     name: str = "default"
     queue_file: str = ""
     completed_limit: int = 500
@@ -320,14 +322,14 @@ class JobQueue(BaseModel):
 
         if len(job_specs) == 1:
             LOGGER.info(
-                f"+++ Assimilated job {job.job_id} at " +
-                f"{job.submitted.isoformat()} - {job.job_spec.command}"
+                f"+++ Assimilated job {job.job_id} at "
+                + f"{job.submitted.isoformat()} - {job.job_spec.command}"
             )
         elif len(job_specs) > 1:
             first_job_id, *_, last_job_id = list(group.jobs.keys())
             LOGGER.info(
-                f"+++ Assimilated jobs {first_job_id} - {last_job_id} at " +
-                f"{group.jobs[first_job_id].submitted.isoformat()}"
+                f"+++ Assimilated jobs {first_job_id} - {last_job_id} at "
+                + f"{group.jobs[first_job_id].submitted.isoformat()}"
             )
 
         self.on_queue_change()
@@ -384,8 +386,8 @@ class JobQueue(BaseModel):
             duration = job.completed - job.started
             if LOGGER is not None:
                 LOGGER.info(
-                    f"--- Completed   job {job.job_id} at {job.completed.isoformat()}. " +
-                    f"Duration = {duration}"
+                    f"--- Completed   job {job.job_id} at {job.completed.isoformat()}. "
+                    + f"Duration = {duration}"
                 )
         except KeyError:
             pass
@@ -433,7 +435,9 @@ class JobQueue(BaseModel):
             LOGGER.debug("Pruning - nothing pruned")
             return
 
-        prune_count = completed_jobs - self.completed_limit  # int(self.completed_limit / 2)
+        prune_count = (
+            completed_jobs - self.completed_limit
+        )  # int(self.completed_limit / 2)
         LOGGER.debug(f"Pruning - will prune {prune_count} completed jobs")
         self.pruned_jobs = {}
         for ij, job in enumerate(list(self.completed_jobs.values())):
