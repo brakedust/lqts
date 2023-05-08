@@ -14,7 +14,7 @@ env = Environment(
     loader=PackageLoader("lqts", "html"), autoescape=select_autoescape(["html", "xml"])
 )
 
-STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "D": 4, "E": 5, "I": 6}
+STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "X": 4, "D": 5, "E": 6, "I": 7}
 
 
 def render_qstat_table(jobs: List[Job], include_complete: bool = False):
@@ -56,14 +56,14 @@ def render_qtop_table(jobs: List[Job]):
     for i in range(0, 8):
         row = []
         for j in range(0, 8):
-            proc = i*8 + j
+            proc = i * 8 + j
             if proc in proc_map:
                 job: Job = proc_map[proc]
                 row.append(str(job.job_id))
             elif proc in (0, 1):
-                row.append('#')  # do not use first two processors ever
+                row.append("#")  # do not use first two processors ever
             elif proc >= app.pool.CPUManager._system_cpu_count:
-                row.append('#')  # these are none existing cpus
+                row.append("#")  # these are none existing cpus
             elif proc not in app.pool.CPUManager.processors.keys():
                 row.append("-")  # existing cpus not being used as workers
             else:

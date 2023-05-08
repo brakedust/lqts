@@ -13,8 +13,8 @@ The version embedded in the code would be 1.0.39+5a70505
 
 """
 
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 vstring = subprocess.check_output(["git", "describe"]).decode().strip()
 vstring = vstring.replace("Version", "")
@@ -25,10 +25,16 @@ parts[2] = parts[2][1:]
 vstring = f"{parts[0]}.{parts[1]}"
 # print(vstring)
 print("----------------\nPoetry")
-subprocess.call(["poetry", "version", vstring])
+subprocess.call(
+    [
+        r"poetry",
+        "version",
+        vstring,
+    ]
+)
 print("----------------")
 
 vstring2 = f"{parts[0]}.{parts[1]}+{parts[2]}"
 # Path('version.py').write_text(f'VERSION = "{vstring2}"\n')
-Path('lqts/version.py').write_text(f'VERSION = "{vstring2}"\n')
+Path("lqts/version.py").write_text(f'VERSION = "{vstring2}"\n')
 print(f'VERSION = "{vstring2}"\n')

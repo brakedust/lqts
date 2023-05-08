@@ -16,9 +16,11 @@ import os
 import subprocess
 import threading
 import time
+
 # from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
+
 # from pathlib import Path
 from textwrap import dedent
 
@@ -142,7 +144,11 @@ class WorkItem:
         """
         Get the status of this work item
         """
-        if self.job.status not in (JobStatus.Error, JobStatus.Deleted):
+        if self.job.status not in (
+            JobStatus.Error,
+            JobStatus.Deleted,
+            JobStatus.Completed,
+        ):
             try:
                 # If we can query the process status, it is a live and running
                 status = self.process.status()
@@ -151,6 +157,10 @@ class WorkItem:
                 # If self.process.status() fails, the process has exited
                 # so the job is done
                 self.job.status = JobStatus.Completed
+        if (self.job.walltime is not None) and (self.job.job_spec.walltime is not None):
+            if self.job.walltime.total_seconds() > self.job.job_spec.walltime:
+                self.job.status = JobStatus.WalltimeExceeded
+                self.kill()
 
         return self.job.status
 
@@ -174,6 +184,8 @@ class WorkItem:
         """
         Mark sjob as completed and write epilogue to logfile
         """
+
+        self.get_output()
 
         self.job.completed = datetime.now()
 

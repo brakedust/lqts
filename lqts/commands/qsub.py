@@ -331,6 +331,15 @@ def qsub_cmulti(
         "However, the log file isn't updated until the process terminates."
     ),
 )
+@click.option(
+    "--walltime",
+    type=str,
+    default=None,
+    help=(
+        "A amount of time a job is allowed to run like HH:MM:SS or in seconds.  "
+        + "It will be killed after this amount"
+    ),
+)
 def qsub_multi(
     commands,
     args,
@@ -343,6 +352,7 @@ def qsub_multi(
     port=config.port,
     ip_address=config.ip_address,
     alternate_runner=False,
+    walltime=None,
 ):
     """
     Submits mutilple jobs to the queue.
@@ -363,6 +373,13 @@ def qsub_multi(
     if depends:
         depends = list(chain(*[get_job_ids(d) for d in depends]))
 
+    if walltime:
+        if ":" in walltime:
+            hrs, minutes, sec = [int(x) for x in walltime.split(":")]
+            walltime = sec + 60 * minutes + hrs * 3600
+        else:
+            walltime = float(walltime)
+
     for command in commands:
         # print(f, print(args))
         command_str = f"{command} " + " ".join(f'"{arg}"' for arg in args)
@@ -380,6 +397,7 @@ def qsub_multi(
             depends=depends,
             cores=cores,
             alternate_runner=alternate_runner,
+            walltime=walltime,
         )
         job_specs.append(js.dict())
 

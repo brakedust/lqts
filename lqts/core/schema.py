@@ -17,7 +17,7 @@ import concurrent.futures as cf
 import enum
 import itertools
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 import textwrap
 
 from lqts.core.config import Configuration
@@ -110,6 +110,7 @@ class JobStatus(enum.Enum):
     Deleted = "D"
     Error = "E"
     Paused = "P"
+    WalltimeExceeded = "X"
 
 
 class JobSpec(BaseModel):
@@ -121,13 +122,23 @@ class JobSpec(BaseModel):
     cores: int = 1  # number of cores required by the job
     alternate_runner: bool = False
     depends: List[JobID] = None
-    walltime: timedelta = None
+    walltime: float = None
 
     def __lt__(self, other: "JobSpec"):
         return self.priority > other.priority
 
     def __eq__(self, other: "JobSpec"):
         return self.priority == other.priority
+
+    def parse_walltime(self):
+        if isinstance(self.walltime, timedelta):
+            self.walltime = self.walltime.total_seconds()
+        elif isinstance(walltime, str):
+            if ":" in walltime:
+                hrs, minutes, sec = [int(x) for x in walltime.split(":")]
+                seconds = sec + 60 * minutes + hrs * 3600
+            else:
+                walltime = float(walltime)
 
 
 class Job(BaseModel):
@@ -488,25 +499,25 @@ class JobQueue(BaseModel):
         self.flags.append("abort")
 
     def save(self):
+        return
+        # with open(self.queue_file, "w") as fid:
 
-        with open(self.queue_file, "w") as fid:
+        #     fid.write("[running_jobs]\n")
+        #     for job_id, job in self.running_jobs.items():
+        #         fid.write(f"{job_id}: {job.json()}\n")
 
-            fid.write("[running_jobs]\n")
-            for job_id, job in self.running_jobs.items():
-                fid.write(f"{job_id}: {job.json()}\n")
+        #     fid.write("[queued_jobs]\n")
+        #     for job_id, job in self.queued_jobs.items():
+        #         fid.write(f"{job_id}: {job.json()}\n")
 
-            fid.write("[queued_jobs]\n")
-            for job_id, job in self.queued_jobs.items():
-                fid.write(f"{job_id}: {job.json()}\n")
+        #     fid.write("[completed_jobs]\n")
+        #     for job_id, job in self.completed_jobs.items():
+        #         fid.write(f"{job_id}: {job.json()}\n")
 
-            fid.write("[completed_jobs]\n")
-            for job_id, job in self.completed_jobs.items():
-                fid.write(f"{job_id}: {job.json()}\n")
-
-        self.is_dirty = False
+        # self.is_dirty = False
 
     def load(self):
-
+        return
         max_job_group = 0
         with open(self.queue_file, "r") as fid:
 
