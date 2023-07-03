@@ -26,8 +26,8 @@ from textwrap import dedent
 
 import psutil
 
-from lqts.resources import CPUResourceManager
 from lqts.core.schema import Job, JobID, JobQueue, JobStatus
+from lqts.resources import CPUResourceManager
 from lqts.version import VERSION
 
 DEFAULT_WORKERS = max(mp.cpu_count() - 2, 1)
@@ -204,9 +204,12 @@ class WorkItem:
             """
         )
 
-        self.logfile.write(footer)
+        try:
+            self.logfile.write(footer)
 
-        self.logfile.close()
+            self.logfile.close()
+        except:
+            pass
 
     def kill(self):
         """
@@ -218,7 +221,6 @@ class WorkItem:
 
 @dataclass
 class Event:
-
     job: Job
     event_type: str
     when: datetime
@@ -248,7 +250,6 @@ class DynamicProcessPool:
         feed_delay: float = 0.0,
         manager_delay: float = 1.0,
     ):
-
         self.job_queue: JobQueue = queue
 
         self.CPUManager = CPUResourceManager(
@@ -285,7 +286,6 @@ class DynamicProcessPool:
         self.resize(value)
 
     def set_logger(self, logger):
-
         self.log = logger
 
     def resize(self, max_workers):
@@ -299,7 +299,6 @@ class DynamicProcessPool:
         """
         more_capacity = max_workers > self.max_workers
         if max_workers is not None:
-
             self.CPUManager.resize(max_workers)
 
             if more_capacity:
@@ -321,7 +320,6 @@ class DynamicProcessPool:
 
         # see if any results are available
         for job_id, work_item in list(self._work_items.items()):
-
             if not work_item.is_running():
                 # the work_item has completed
                 work_item.mark += 1
@@ -336,6 +334,25 @@ class DynamicProcessPool:
                     self.log.info("Got result {} = {}".format(job.job_id, job))
                     self.job_queue.on_job_finished(job)
                     self._work_items.pop(job_id)
+
+    def get_log_output(self):
+        """
+        Handles getting the results when a job is done and cleaning up
+        worker processes that have finished.  It then calls feed_queue
+        to ensure that work continues to be done.
+
+        Parameters
+        ----------
+        timeout: int
+            A timeout for waiting on a result
+
+        """
+        work_item: WorkItem
+
+        # see if any results are available
+        for work_item in self._work_items.values():
+            if work_item.is_running():
+                work_item.get_output()
 
     def submit_one_job(self, job: Job, cores: list) -> tuple[bool, WorkItem]:
         """Start one job running in the pool"""
@@ -355,7 +372,6 @@ class DynamicProcessPool:
         """
 
         while len(self.job_queue.queued_jobs) > 0:
-
             job = self.job_queue.next_job()
 
             if job is None:
@@ -422,11 +438,17 @@ class DynamicProcessPool:
         This is the loop that manages getting job completetions, taking care of the sub-processes
          and keeping the queue moving
         """
+        i = 0
         while True:
             time.sleep(self.manager_delay)
 
             # check for finished jobs
             self.process_completions()
+
+            if (i := i + 1) == 20:
+                # get log output every 20th time through this loop
+                self.get_log_output()
+                i = 0
 
             if self.__exiting:
                 if len(self._work_items) == 0:

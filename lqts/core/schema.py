@@ -16,14 +16,14 @@ job queues.
 import concurrent.futures as cf
 import enum
 import itertools
+import textwrap
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple, Union
-import textwrap
 
-from lqts.core.config import Configuration
-from lqts.simple_logging import Level, getLogger, Logger
 from pydantic import BaseModel
 
+from lqts.core.config import Configuration
+from lqts.simple_logging import Level, Logger, getLogger
 
 DEBUG = False
 
@@ -57,7 +57,6 @@ class JobID(BaseModel):
 
     @staticmethod
     def parse_obj(value):
-
         if isinstance(value, JobID):
             return value
         elif isinstance(value, str):
@@ -90,7 +89,6 @@ class JobID(BaseModel):
     #     return self.__str__()
 
     def __lt__(self, other: "JobID"):
-
         if self.group == other.group:
             return self.index < other.index
         else:
@@ -102,7 +100,6 @@ class JobID(BaseModel):
 
 
 class JobStatus(enum.Enum):
-
     Initialized = "I"
     Queued = "Q"
     Running = "R"
@@ -114,7 +111,6 @@ class JobStatus(enum.Enum):
 
 
 class JobSpec(BaseModel):
-
     command: str
     working_dir: str
     log_file: str = None
@@ -142,7 +138,6 @@ class JobSpec(BaseModel):
 
 
 class Job(BaseModel):
-
     job_id: JobID = JobID(group=1, index=0)
     status: JobStatus = JobStatus.Queued
 
@@ -175,7 +170,6 @@ class Job(BaseModel):
 
     @property
     def walltime(self) -> timedelta:
-
         try:
             if self.completed is not None:
                 return self.completed - self.started
@@ -213,22 +207,21 @@ class Job(BaseModel):
         return [
             self.job_id,
             self.status.value,
+            self.job_spec.priority,
             self.job_spec.command,
             self.walltime,
             self.job_spec.working_dir,
             dependencies_str,
+            self.completed.isoformat() if self.status == JobStatus.Completed else "",
         ]
 
     def _sort_params(self):
-
         return (self.job_spec, self.job_id)
 
     def __lt__(self, other):
-
         return self._sort_params() < other._sort_params()
 
     def __eq__(self, other):
-
         return self._sort_params() == other._sort_params()
 
 
@@ -427,7 +420,6 @@ class JobQueue(BaseModel):
             waiting_on: List[JobID] = []
 
         if len(waiting_on) > 0:
-
             if DEBUG:
                 print(f">w<{job.job_id} waiting on running jobs: {waiting_on}")
 
@@ -468,7 +460,6 @@ class JobQueue(BaseModel):
         import time
 
         while True:
-
             self.prune()
             if self.is_dirty:
                 self.save()
@@ -520,7 +511,6 @@ class JobQueue(BaseModel):
         return
         max_job_group = 0
         with open(self.queue_file, "r") as fid:
-
             reading_queue = self.running_jobs
             was_running = False
             for line in fid:
@@ -547,7 +537,6 @@ class JobQueue(BaseModel):
 
     @property
     def all_jobs(self):
-
         return list(
             itertools.chain(
                 self.running_jobs.values(),
@@ -557,7 +546,6 @@ class JobQueue(BaseModel):
         )
 
     def pop_job(self, job: Job, queue: Dict[JobID, Job]) -> Job:
-
         if job is None:
             return None
         else:
@@ -592,7 +580,6 @@ class JobQueue(BaseModel):
         return deleted_job_ids
 
     def clear(self):
-
         for job_id in list(self.running_jobs.keys()):
             job = self.running_jobs.pop(job_id)
             job.status = JobStatus.Deleted
@@ -600,7 +587,6 @@ class JobQueue(BaseModel):
 
 
 class WorkItem(BaseModel):
-
     job: Job
     future: Any
     fn: Any

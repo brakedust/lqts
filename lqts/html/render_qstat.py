@@ -1,13 +1,14 @@
-from typing import List
 from collections import Counter
+from typing import List
+
+from jinja2 import Environment, PackageLoader, select_autoescape
+
 from lqts.core.schema import Job, JobID, JobSpec, JobStatus
 from lqts.core.server import app
 
 # import jinja2
 # import lqts.displaytable as dt
 # from lqts.themes import make_html
-
-from jinja2 import Environment, PackageLoader, select_autoescape
 
 
 env = Environment(
@@ -18,8 +19,7 @@ STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "X": 4, "D": 5, "E": 6, "I": 7}
 
 
 def render_qstat_table(jobs: List[Job], include_complete: bool = False):
-
-    header = ["ID", "St", "Command", "Walltime", "WorkingDir", "Dependencies"]
+    header = ["ID", "St", "Pr", "Command", "Walltime", "WorkingDir", "Deps", "Cmplt"]
     rows = (
         job.as_table_row()
         for job in sorted(
@@ -35,7 +35,6 @@ def render_qstat_table(jobs: List[Job], include_complete: bool = False):
 
 
 def render_qstat_table_only(include_complete: bool = False):
-
     jobs = app.queue.all_jobs
 
     return render_qstat_table(jobs, include_complete=include_complete)
@@ -54,6 +53,8 @@ def render_qtop_table(jobs: List[Job]):
 
     rows = []
     for i in range(0, 8):
+        if len(rows) * 8 > app.pool.CPUManager._system_cpu_count:
+            break
         row = []
         for j in range(0, 8):
             proc = i * 8 + j
@@ -77,7 +78,6 @@ def render_qtop_table(jobs: List[Job]):
 
 
 def render_qstat_page(include_complete: bool = False):
-
     jobs = app.queue.all_jobs
 
     page_template = env.get_template("page_template.jinja")
@@ -107,7 +107,6 @@ def render_qstat_page(include_complete: bool = False):
 
 
 if __name__ == "__main__":
-
     job = Job(
         job_id=JobID(group=1, index=2),
         job_spec=JobSpec(command="cmd /c echo hello", working_dir="/tmp"),
