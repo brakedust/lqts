@@ -52,6 +52,8 @@ class WorkItem:
 
     logfile = None  # file handle
 
+    _logging_thread = None
+
     def start_logging(self):
         """
         Opens the log file and writes the job header
@@ -127,6 +129,9 @@ class WorkItem:
             self.process.cpu_affinity(self.cores)
             self.job.cores = self.cores
 
+            self._logging_thread = threading.Thread(target=self.get_output)
+            self._logging_thread.start()
+
         except FileNotFoundError:
             self.logfile.write(
                 f"\nERROR: Command not found.  Ensure the command is an executable file.\n"
@@ -174,18 +179,27 @@ class WorkItem:
         """
         Reads some output from the process and writes it to the logfile
         """
-        line = self.process.stdout.read()
-        line += self.process.stderr.read()
-        line = line.decode().replace("\r", "").replace("\n\n", "\n")
+        print(f"Work item logging jobid= {self.job.job_id}")
+        time.sleep(5)
+        try:
+            while True:
+                line = self.process.stdout.read(64)
+                # line += self.process.stderr.read(256)
+                line = line.decode().replace("\r", "").replace("\n\n", "\n")
+                # print(f"{line=}")
+                self.logfile.write(line)
+                self.logfile.flush()
+        except Exception as ex:
+            import traceback
 
-        self.logfile.write(line)
+            traceback.print_exc()
 
     def clean_up(self):
         """
         Mark sjob as completed and write epilogue to logfile
         """
 
-        self.get_output()
+        # self.get_output()
 
         self.job.completed = datetime.now()
 
@@ -273,6 +287,7 @@ class DynamicProcessPool:
         self._event_callbacks = set()
 
         self.log = DummyLogger()
+        self._logging_threads = []
 
         self.__paused: bool = False
         self.__manager_thread = None
@@ -352,6 +367,7 @@ class DynamicProcessPool:
         # see if any results are available
         for work_item in list(self._work_items.values()):
             if work_item.is_running():
+                print(f"-->Getting output {work_item.job.job_id}")
                 work_item.get_output()
 
     def submit_one_job(self, job: Job, cores: list) -> tuple[bool, WorkItem]:
@@ -438,17 +454,18 @@ class DynamicProcessPool:
         This is the loop that manages getting job completetions, taking care of the sub-processes
          and keeping the queue moving
         """
-        i = 0
+        # i = 0
         while True:
             time.sleep(self.manager_delay)
-
+            # print(f"Cycling {i=}")
             # check for finished jobs
             self.process_completions()
 
-            if (i := i + 1) == 20:
-                # get log output every 20th time through this loop
-                self.get_log_output()
-                i = 0
+            # if (i := i + 1) == 20:
+            #     # get log output every 20th time through this loop
+            #     print("Getting output 0")
+            #     self.get_log_output()
+            #     i = 0
 
             if self.__exiting:
                 if len(self._work_items) == 0:
