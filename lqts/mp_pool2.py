@@ -350,7 +350,7 @@ class DynamicProcessPool:
         work_item: WorkItem
 
         # see if any results are available
-        for work_item in self._work_items.values():
+        for work_item in list(self._work_items.values()):
             if work_item.is_running():
                 work_item.get_output()
 
