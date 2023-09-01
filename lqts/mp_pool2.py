@@ -190,9 +190,9 @@ class WorkItem:
                 self.logfile.write(line)
                 self.logfile.flush()
         except Exception as ex:
-            import traceback
-
-            traceback.print_exc()
+            # import traceback
+            # traceback.print_exc()
+            pass
 
     def clean_up(self):
         """
