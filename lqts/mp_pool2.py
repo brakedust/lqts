@@ -179,7 +179,7 @@ class WorkItem:
         """
         Reads some output from the process and writes it to the logfile
         """
-        print(f"Work item logging jobid= {self.job.job_id}")
+        # print(f"Work item logging jobid= {self.job.job_id}")
         time.sleep(5)
         try:
             while True:
