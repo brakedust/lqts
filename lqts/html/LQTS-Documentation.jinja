@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>LoQuTuS - {{ page_title }} </title>
+  <title>LoQuTuS - Doc</title>
   <meta charset="utf-8">
 
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -26,7 +26,7 @@
     <h1 style="text-align:center;color: white">LoQuTuS - Documentation</h1>
 
   </div>
-  <!-- <h1 id="lqts-documentation">LQTS Documentation</h1> -->
+  {# <h1 id="lqts-documentation">LQTS Documentation</h1> #}
   <h1 id="introduction">1. Introduction</h1>
   <p>LQTS (pronounced Locutus) is a <em>L</em>ightweight job <em>Q</em>ueueing <em>S</em>ystem. Its purpose is to manage
     the execution of a large number of computational jobs, only exeucuting a fixed amount of them concurrently. LQTS is
@@ -63,12 +63,10 @@ Worker pool started with 32 workers
 Visit http://127.0.0.1:9200/qstatus to view the queue status</code></pre>
   <p>By default there are (# CPUs - 2) workers avaialable. This can be queried by calling <code>qworkers.exe</code> with
     no arguments. The number of workers can be dynamically adjusted by calling <code>qworkers.exe</code> with one
-    argument
-    that is the number of workers desired.</p>
+    argument that is the number of workers desired.</p>
   <h1 id="server-configuration">4. Server Configuration</h1>
   <p>Ther server has several settings that can be adjusted by setting environment variables or by starting the server in
-    a
-    directory where a file name <code>.env</code> is present. Unless you have a specific requirement, it is not
+    a directory where a file name <code>.env</code> is present. Unless you have a specific requirement, it is not
     recommended to change these from their defaults. The available settings are:</p>
   <ul>
     <li>LQTS_PORT - The port the server is bound to (change if you want to run mulitple instances)</li>
@@ -80,8 +78,7 @@ Visit http://127.0.0.1:9200/qstatus to view the queue status</code></pre>
   </ul>
   <h1 id="job-submission">5. Job Submission</h1>
   <p>Several commands are available for different use cases to submit jobs to the queue. Each qsub command returns the
-    job
-    ID for the submitted job(s).</p>
+    job ID for the submitted job(s).</p>
   <ul>
     <li>qsub - submit one job</li>
     <li>qsub-multi - submit multiple commands to the queue</li>
@@ -92,15 +89,13 @@ Visit http://127.0.0.1:9200/qstatus to view the queue status</code></pre>
   <h2 id="job-groups">Job Groups</h2>
   <p>Qsub commands that submit multiple jobs at once create a job group with job IDs that look like 3.0, 3.1, 3.2, … In
     most cases referencing a job ID of “3” will refer to the whole job group. For example <code>qdel 3</code> will
-    remove
-    the entire job group for the queue and stop any currently executing jobs in the job group.</p>
+    remove the entire job group for the queue and stop any currently executing jobs in the job group.</p>
   <h2 id="qsub">qsub</h2>
   <p>The <code>qsub</code> command submits one job to the queue.</p>
   <p>Example:</p>
   <pre><code>$ qsub myprogram.exe --log -- --MyOption1 --MyOption2</code></pre>
   <p>In the above example –MyOption1 and –MyOption2 would be pass along to myprogram.exe when it executes. Any
-    parameters
-    after “–” get passed along in this way.</p>
+    parameters after “–” get passed along in this way.</p>
   <h3 id="full-command-help">Full Command Help</h3>
   <pre><code>Usage: qsub [OPTIONS] COMMAND [ARGS]...
 
@@ -182,8 +177,7 @@ Options:
   <h2 id="qsub-multi">qsub-multi</h2>
   <p>The <code>qsub-multi</code> commnad submits multiple jobs. This command is used if you have multiple executables or
     scripts that you want to submit. You should be able to reference this executables or scripts with a glob pattern
-    such
-    as *.bat.</p>
+    such as *.bat.</p>
   <p>Example:</p>
   <pre><code>$ qsub-multi myprograms*.exe</code></pre>
   <h3 id="full-command-help-2">Full Command Help</h3>
@@ -223,9 +217,8 @@ Options:
   --help                  Show this message and exit.</code></pre>
   <h2 id="qsub-argfile">qsub-argfile</h2>
   <p>The <code>qsub-argfile</code> command submits mutliple jobs. For this command you need one executable file and a
-    text
-    file. Each line in the text file is represents a different job and has the arguments that will be passed to your
-    executable command.</p>
+    text file. Each line in the text file is represents a different job and has the arguments that will be passed to
+    your executable command.</p>
   <p>For example, imagine you have a script <code>echoit.bat</code> and its contents are</p>
   <pre><code>echo $1
 sleep 2</code></pre>
@@ -237,8 +230,7 @@ MICHAEL_SCOTT</code></pre>
   <p>Here you want to pass each line separately <code>echoit.bat</code></p>
   <pre><code>$ qsub-argfile echoit.bat argfile.txt --log</code></pre>
   <p>Specifying <code>--log</code> will case LQTS to write a log file for each job. The log file contains any output
-    that
-    would have been written to the screen as well as some job performance information.</p>
+    that would have been written to the screen as well as some job performance information.</p>
   <h3 id="full-command-help-3">Full Command Help</h3>
   <pre><code>Usage: qsub-argfile [OPTIONS] COMMAND ARGFILE
 
@@ -268,17 +260,14 @@ Options:
   --help                  Show this message and exit.</code></pre>
   <h1 id="passing-additional-arguments-to-your-command">6. Passing Additional Arguments to your Command</h1>
   <p>After the command and input file/arg file, arguments are typically interpreted as being arguments passed to the
-    qsub
-    command itself and are not passed on to your program. Like many Linux commands, specifying a double dash “–” will
-    allow you to specify additional arguments you want passed to your command.</p>
+    qsub command itself and are not passed on to your program. Like many Linux commands, specifying a double dash “–”
+    will allow you to specify additional arguments you want passed to your command.</p>
   <pre><code>$ qsub myprogram.exe --log -- --flagForMyProgram true</code></pre>
   <p>Here “<code>--log</code>” is consumed by the qsub command and “<code>--flagForMyProgram true</code>” is passed
-    along
-    to myprogram.exe when it is executed.</p>
+    along to myprogram.exe when it is executed.</p>
   <h1 id="waiting-for-a-job-to-complete">7. Waiting for a job to complete</h1>
   <p>The <code>qwait.exe</code> command will block until the specified jobs have completed. If you have something you
-    want
-    to happen once a set of jobs has completed, use this. You can specifies the job IDs as arguments to
+    want to happen once a set of jobs has completed, use this. You can specifies the job IDs as arguments to
     <code>qwait</code>, or it will read them from stdin. This means you can pipe the output of the <code>qsub</code>
     commands directly into <code>qwait</code>.
   </p>
@@ -290,9 +279,9 @@ $ qwait 10</code></pre>
   <pre><code>$ qsub myprogram.exe --log -- --flagForMyProgram true | qwait</code></pre>
   <h1 id="job-priority">8. Job Priority</h1>
   <p>Each job has a priortity associated with it. Jobs with higher priority are executed before jobs with lower
-    priority.
-    Most <code>qsub</code> commands support a <code>--priority</code> argument. There is also the <code>qpriority</code>
-    command that allows you to change the priority of a job after it has been submitted.</p>
+    priority. Most <code>qsub</code> commands support a <code>--priority</code> argument. There is also the
+    <code>qpriority</code> command that allows you to change the priority of a job after it has been submitted.
+  </p>
   <pre><code>Usage: qpriority [OPTIONS] PRIORITY [JOB_IDS]...
 
   Change the priority of one or more jobs
@@ -309,12 +298,10 @@ Options:
     running and how many are queued.
   </p>
   <p>You can also navigate to http://127.0.0.1:9200 (where 9200 is the port you have LQTS running on) to see an HTML
-    table
-    of the current status. This page auto-refreshes every two minutes.</p>
+    table of the current status. This page auto-refreshes every two minutes.</p>
   <h1 id="testing-your-setup">11. Testing your setup</h1>
   <p><code>qsub-test</code> provides an easy way to test that LQTS is functioning properly. It writes a script that
-    sleeps
-    for a user defined amount of time and an argfile with a user defined number of jobs.</p>
+    sleeps for a user defined amount of time and an argfile with a user defined number of jobs.</p>
   <p>The following example will write a script that sleeps for 5 seconds and submit 30 jobs to the queue.</p>
   <pre><code>$ qsub-test 5 --count 30</code></pre>
 </body>

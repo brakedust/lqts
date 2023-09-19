@@ -51,9 +51,12 @@ def render_qtop_table(jobs: List[Job]):
                 proc_map[core] = job
                 # print(job.job_id, core)
 
+    # print(
+    #     list(app.pool.CPUManager.processors.keys()), len(app.pool.CPUManager.processors)
+    # )
     rows = []
     for i in range(0, 8):
-        if len(rows) * 8 > app.pool.CPUManager._system_cpu_count:
+        if len(rows) * 8 >= app.pool.CPUManager._system_cpu_count:
             break
         row = []
         for j in range(0, 8):
@@ -61,11 +64,13 @@ def render_qtop_table(jobs: List[Job]):
             if proc in proc_map:
                 job: Job = proc_map[proc]
                 row.append(str(job.job_id))
-            elif proc in (0, 1):
-                row.append("#")  # do not use first two processors ever
+            # elif proc in (0, 1):
+            #     row.append("#")  # do not use first two processors ever
             elif proc >= app.pool.CPUManager._system_cpu_count:
                 row.append("#")  # these are none existing cpus
+                # print(f"    #  {proc},{i}. {j}")
             elif proc not in app.pool.CPUManager.processors.keys():
+                # print(f"    {proc},{i}. {j}")
                 row.append("-")  # existing cpus not being used as workers
             else:
                 row.append("")
@@ -102,6 +107,14 @@ def render_qstat_page(include_complete: bool = False):
         qtop_table=render_qtop_table(jobs),
         script_block=script_block,
     )
+
+    return page_text
+
+
+def render_doc_page():
+    page_template = env.get_template("LQTS-Documentation.jinja")
+
+    page_text = page_template.render()
 
     return page_text
 

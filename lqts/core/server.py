@@ -1,12 +1,11 @@
-
 from pathlib import Path
 
 from fastapi import FastAPI
 
-from lqts.core.schema import JobQueue
-from lqts.mp_pool2 import DynamicProcessPool, DEFAULT_WORKERS
 # from lqts.job_runner import run_command
 from lqts.core.config import Configuration
+from lqts.core.schema import JobQueue
+from lqts.mp_pool2 import DEFAULT_WORKERS, DynamicProcessPool
 from lqts.version import VERSION
 
 
@@ -66,7 +65,10 @@ class Application(FastAPI):
         )
         self.pool._start_manager_thread()
         # self.pool.add_event_callback(self.receive_pool_events)
-        self.log.info("Worker pool started with {} workers".format(nworkers))
+        self.log.info("Worker pool started with {} workers.".format(nworkers))
+        self.log.info(
+            f"Total number of CPUs available is {self.pool.CPUManager._system_cpu_count}."
+        )
 
     def _setup_logging(self, log_file: str):
         """
@@ -77,7 +79,8 @@ class Application(FastAPI):
         ----------
         log_file: str
         """
-        from lqts.simple_logging import getLogger, Level
+        from lqts.simple_logging import Level, getLogger
+
         if self.debug:
             self.log = getLogger("lqts", Level.DEBUG)
         else:

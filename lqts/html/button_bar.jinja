@@ -1,19 +1,26 @@
-
 <div class="container">
     <div class="row">
         <div class="col-sm">
-            <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10"
-                href="/qstatus?complete=yes" role="button">Include Completed</a>
+            <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=yes"
+                role="button">Include Completed</a>
             <a type="button" class="btn btn-primary mr-1 mt-1" style="padding:10" href="/qstatus?complete=no"
                 role="button">Exclude Completed</a>
-            <button type="button" class="btn btn-danger mr-1 mt-1" style="padding:10" onclick="ClearCompletedJobs()">Clear Completed Jobs</button>
+            <button type="button" class="btn btn-danger mr-1 mt-1" style="padding:10"
+                onclick="ClearCompletedJobs()">Clear Completed Jobs</button>
         </div>
 
 
         <div class="col-sm">
             <label class="" style="margin:10px" for="count">Worker Count</label>
             <input type="text" id="count" name="count" value="{{ workercount }}" style="width:60px;margin:10px">
-            <button type="button" class="btn btn-danger mr-1 mt-1" style="padding:10" onclick="SetWorkers()">Resize Pool</button>
+            <button type="button" class="btn btn-danger mr-1 mt-1" style="padding:10" onclick="SetWorkers()">Resize
+                Pool</button>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-sm">
+            <a type="button" class="btn btn-success mr-1 mt-1" style="padding:10" href="/doc"
+                role="button">Documentation</a>
         </div>
     </div>
 </div>

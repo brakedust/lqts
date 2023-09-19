@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lqts"
-version = "1.0.47"
+version = "1.0.54"
 description = ""
 authors = ["Bradley L Campbell <bradley.campbell@navy.mil>"]
 include = ["lqts/version.py"]

@@ -4,10 +4,12 @@
 <head>
     <title>LoQuTuS - {{ page_title }} </title>
     <meta charset="utf-8">
-    {# <meta http-equiv="refresh" content="120"> #}
+    {#
+    <meta http-equiv="refresh" content="120"> #}
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-    {# <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> #}
+    {#
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> #}
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
@@ -23,8 +25,8 @@
 
 <body>
     <div class="container" style="background:steelblue">
-        <h1 style="text-align:center;color: white">LoQuTuS</h1>
-        <h2 style="text-align:center;color: white"> {{ page_title }} </h1>
+        <h1 style="text-align:center;color: white">LoQuTuS - {{ page_title }}</h1>
+        {# <h2 style="text-align:center;color: white"> {{ page_title }} </h1> #}
     </div>
 
     {{ navbar }}
@@ -32,17 +34,17 @@
     {{ buttonbar }}
 
     <div class="container">
-    <p class="lead"> {{ summary }} </p>
+        <p class="lead"> {{ summary }} </p>
     </div>
 
     <div id="TABLES">
-    <div class="container" id="QTopTableContainer">
-    {{ qtop_table }}
-    </div>
+        <div class="container" id="QTopTableContainer">
+            {{ qtop_table }}
+        </div>
 
-    <div class="container" id="QstatTableContainer">
-    {{ qstat_table }}
-    </div>
+        <div class="container" id="QstatTableContainer">
+            {{ qstat_table }}
+        </div>
 
     </div> <!-- id="TABLES" -->
 
