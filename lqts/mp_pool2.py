@@ -225,12 +225,13 @@ class WorkItem:
         except:
             pass
 
-    def kill(self):
+    def kill(self, new_status=JobStatus.Deleted):
         """
         Kill this job and set its status to deleted
         """
-        self.process.kill()
-        self.job.status = JobStatus.Deleted
+        if self.process:
+            self.process.kill()
+            self.job.status = new_status
 
 
 @dataclass
@@ -373,13 +374,17 @@ class DynamicProcessPool:
     def submit_one_job(self, job: Job, cores: list) -> tuple[bool, WorkItem]:
         """Start one job running in the pool"""
 
-        work_item = WorkItem(job=job, cores=cores)
+        try:
+            work_item = WorkItem(job=job, cores=cores)
 
-        work_item.start()
+            work_item.start()
 
-        self.job_queue.on_job_started(job)
+            self.job_queue.on_job_started(job)
 
-        return True, work_item
+            return True, work_item
+        except Exception as ex:
+            print(f"Error starting job {work_item.job.job_id}")
+            self.kill_job(work_item.job.job_id)
 
     def feed_queue(self):
         """
@@ -417,7 +422,7 @@ class DynamicProcessPool:
     def unpause(self):
         self.__paused = False
 
-    def kill_job(self, job_id_to_kill, kill_all=False) -> int:
+    def kill_job(self, job_id_to_kill, kill_all=False, kill_due_to_error=False) -> int:
         """
         Kills the job with ID *job_id_to_kill*
 
@@ -440,7 +445,10 @@ class DynamicProcessPool:
         for jid in job_ids_to_kill:
             try:
                 work_item = self._work_items.pop(jid)
-                work_item.kill()
+                if kill_due_to_error:
+                    work_item.kill(new_status=JobStatus.Error)
+                else:
+                    work_item.kill()
                 print(f"killing running job {jid}")
                 self.CPUManager.free_processors(work_item.cores)
                 killed_jobs.append(jid)
@@ -454,18 +462,13 @@ class DynamicProcessPool:
         This is the loop that manages getting job completetions, taking care of the sub-processes
          and keeping the queue moving
         """
-        # i = 0
+
         while True:
+
             time.sleep(self.manager_delay)
-            # print(f"Cycling {i=}")
+
             # check for finished jobs
             self.process_completions()
-
-            # if (i := i + 1) == 20:
-            #     # get log output every 20th time through this loop
-            #     print("Getting output 0")
-            #     self.get_log_output()
-            #     i = 0
 
             if self.__exiting:
                 if len(self._work_items) == 0:
@@ -481,7 +484,10 @@ class DynamicProcessPool:
 
             else:
                 # start up new jobs
-                self.feed_queue()
+                try:
+                    self.feed_queue()
+                except Exception as ex:
+                    print("Server error")
 
     # def join(self, timeout=None):
     #     """

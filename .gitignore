@@ -115,3 +115,4 @@ tests/data/argfile.txt
 sleepy.bat
 argfile.txt
 lqts.code-workspace
+dist_exe/

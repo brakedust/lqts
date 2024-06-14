@@ -1,15 +1,16 @@
-import os
-from pathlib import Path
-import requests
-import click
-from itertools import chain
 import json
+import os
+from itertools import chain
+from pathlib import Path
 
-from lqts.core.schema import JobSpec, JobID
-from .click_ext import OptionNargs
+import click
+import requests
 
 from lqts.core.config import Configuration
+from lqts.core.schema import JobID, JobSpec
+from lqts.path_utils import find_file
 
+from .click_ext import OptionNargs
 
 if Path(".env").exists():
     config = Configuration.load_env_file(".env")
@@ -47,6 +48,15 @@ def get_job_ids(job_id_str: str):
             return []
     else:
         return JobID.parse_obj(job_id_str)
+
+
+def parse_walltime(walltime):
+    if ":" in walltime:
+        hrs, minutes, sec = [int(x) for x in walltime.split(":")]
+        walltime = sec + 60 * minutes + hrs * 3600
+    else:
+        walltime = float(walltime)
+    return walltime
 
 
 @click.command("qsub")
@@ -113,7 +123,15 @@ def qsub(
 ):
     """Submits one job to the queue"""
 
-    command_str = command + " " + " ".join(f'"{arg}"' for arg in args)
+    command = find_file(command)
+    if command is None:
+        print("command not found")
+        return
+
+    command_str = f'"{command}"'
+
+    if args:
+        command_str += " " + " ".join(f'"{arg}"' for arg in args)
 
     working_dir = encode_path(os.getcwd())
 
@@ -121,11 +139,7 @@ def qsub(
         depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     if walltime:
-        if ":" in walltime:
-            hrs, minutes, sec = [int(x) for x in walltime.split(":")]
-            seconds = sec + 60 * minutes + hrs * 3600
-        else:
-            walltime = float(walltime)
+        walltime = parse_walltime(walltime)
 
     if log and not logfile:
         logfile = str(Path(command).with_suffix(".lqts.log"))
@@ -136,7 +150,7 @@ def qsub(
         log_file=logfile,
         priority=priority,
         depends=depends,
-        # walltime=walltime,
+        walltime=walltime,
         cores=cores,
         alternate_runner=alternate_runner,
     )
@@ -191,6 +205,15 @@ def qsub(
     "--ip_address", default=config.ip_address, help="The IP address of the server"
 )
 @click.option(
+    "--walltime",
+    type=str,
+    default=None,
+    help=(
+        "A amount of time a job is allowed to run.  "
+        + "It will be killed after this amount [NOT IMPLEMENTED YET]"
+    ),
+)
+@click.option(
     "--alternate-runner",
     "-a",
     is_flag=True,
@@ -220,6 +243,7 @@ def qsub_cmulti(
     cores=1,
     port=config.port,
     ip_address=config.ip_address,
+    walltime=None,
     alternate_runner=False,
     changewd=False,
 ):
@@ -240,6 +264,11 @@ def qsub_cmulti(
     files = list(iglob(file_pattern))
     print(files)
 
+    # command = Path(command).absolute()
+    resolved_command = find_file(command)
+    if resolved_command is None:
+        print(f"Command '{command}' not found in local directory or on PATH.")
+
     # print("file_patter:", file_pattern)
     # print(files)
     job_specs = []
@@ -248,13 +277,18 @@ def qsub_cmulti(
     if depends:
         depends = list(chain(*[get_job_ids(d) for d in depends]))
 
+    if walltime:
+        walltime = parse_walltime(walltime)
+
     for f in files:
         if changewd:
-            working_dir = str(Path(f).resolve().parent)
+            working_dir = str(Path(f).absolute().parent)
             f = Path(f).name
 
         # print(f, print(args))
-        command_str = f"{command} {f} " + " ".join(f'"{arg}"' for arg in args)
+        command_str = f'"{resolved_command}" {f} ' + " ".join(
+            f'"{arg}"' for arg in args
+        )
         # print(command)
         if log:
             logfile = str(Path(f).with_suffix(".lqts.log"))
@@ -365,7 +399,7 @@ def qsub_multi(
 
     from glob import iglob
 
-    commands = iglob(commands)
+    # commands = iglob(commands)
 
     job_specs = []
     working_dir = encode_path(os.getcwd())
@@ -374,18 +408,21 @@ def qsub_multi(
         depends = list(chain(*[get_job_ids(d) for d in depends]))
 
     if walltime:
-        if ":" in walltime:
-            hrs, minutes, sec = [int(x) for x in walltime.split(":")]
-            walltime = sec + 60 * minutes + hrs * 3600
-        else:
-            walltime = float(walltime)
+        walltime = parse_walltime(walltime)
 
-    for command in commands:
+    for command in iglob(commands):
         # print(f, print(args))
-        command_str = f"{command} " + " ".join(f'"{arg}"' for arg in args)
+        # command = Path(command).absolute()
+        resolved_command = find_file(command)
+        if resolved_command is None:
+            print(f"Command '{command}' not found.")
+        print(resolved_command)
+        command_str = f'"{resolved_command}"'
+        if args:
+            command_str += " " + " ".join(f'"{arg}"' for arg in args)
         # print(command)
         if log:
-            logfile = str(Path(command).with_suffix(".lqts.log"))
+            logfile = str(Path(resolved_command).with_suffix(".lqts.log"))
         else:
             logfile = None
 
@@ -506,6 +543,7 @@ def _qsub_argfile(
     from glob import glob
 
     # files = glob(files)
+    command = Path(command).absolute()
 
     job_specs = []
     working_dir = encode_path(os.getcwd())
