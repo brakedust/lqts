@@ -36,7 +36,7 @@ jinja2 = "3.1.2"
 ujson = "5.10.0"
 requests = "2.32.3"
 psutil = "5.9.8"
-urllib3 = "2.2.1"
+urllib3 = "2.2.2"
 uvicorn = "0.17.6"
 
 [tool.poetry.dev-dependencies]
