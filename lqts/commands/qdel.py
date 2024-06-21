@@ -1,32 +1,23 @@
-import requests
-import click
 import sys
 from pathlib import Path
-
-from lqts.core.schema import Job
-from lqts.core.config import Configuration
-
-from lqts.core.schema import JobID
-
 from string import digits
+
+import click
+import requests
+
+from lqts.core.config import config
+from lqts.core.schema import Job, JobID
+
 digits += ". "
 
 
-if Path(".env").exists():
-    config = Configuration.load_env_file(".env")
-else:
-    config = Configuration()
-
-
 @click.command("qdel")
-# @click.argument("command", nargs=1)
-# @click.argument("args", nargs=-1)
-# @click.option("--priority", default=10, type=int)
-# @click.option("--logfile", default='', type=str)
 @click.argument("job_ids", nargs=-1)
 @click.option("--debug", is_flag=True, default=False)
 @click.option("--port", default=config.port, help="The port number of the server")
-@click.option("--ip_address", default=config.ip_address, help="The IP address of the server")
+@click.option(
+    "--ip_address", default=config.ip_address, help="The IP address of the server"
+)
 def qdel(job_ids, debug=False, port=config.port, ip_address=config.ip_address):
     """Delete jobs from the queue"""
 

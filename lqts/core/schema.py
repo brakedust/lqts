@@ -20,7 +20,7 @@ import textwrap
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from lqts.core.config import Configuration
 from lqts.simple_logging import Level, Logger, getLogger
@@ -113,12 +113,15 @@ class JobStatus(enum.Enum):
 class JobSpec(BaseModel):
     command: str
     working_dir: str
-    log_file: str = None
-    priority: int = 10
+    log_file: Union[None, str] = Field(None, description="Log file for the job")
+    priority: int = Field(10, description="Priority level.  Default is 10")
     cores: int = 1  # number of cores required by the job
     alternate_runner: bool = False
-    depends: List[JobID] = None
-    walltime: float = None
+    depends: list[JobID] = Field(default_factory=list)
+    walltime: Union[timedelta, float, str, None] = Field(
+        None,
+        description="Max time a job is allowed to run",
+    )
 
     def __lt__(self, other: "JobSpec"):
         return self.priority > other.priority
@@ -126,59 +129,48 @@ class JobSpec(BaseModel):
     def __eq__(self, other: "JobSpec"):
         return self.priority == other.priority
 
-    def parse_walltime(self):
-        if isinstance(self.walltime, timedelta):
-            self.walltime = self.walltime.total_seconds()
-        elif isinstance(walltime, str):
-            if ":" in walltime:
-                hrs, minutes, sec = [int(x) for x in walltime.split(":")]
+    @field_validator("walltime")
+    @classmethod
+    def parse_walltime(cls, val: float | str | timedelta):
+        if isinstance(val, timedelta):
+            return val.total_seconds()
+        elif isinstance(val, str):
+            if ":" in val:
+                hrs, minutes, sec = [int(x) for x in val.split(":")]
                 seconds = sec + 60 * minutes + hrs * 3600
+                return float(seconds)
             else:
-                walltime = float(walltime)
+                return float(val)
+        else:
+            return val
 
 
 class Job(BaseModel):
     job_id: JobID = JobID(group=1, index=0)
     status: JobStatus = JobStatus.Queued
 
-    submitted: datetime = None
-    started: datetime = None
-    completed: datetime = None
+    submitted: datetime | str = None
+    started: datetime | str | None = None
+    completed: datetime | str | None = None
 
     job_spec: JobSpec = None
 
     cores: list[int] = None
 
-    # def __init__(self, *args, **kwargs):
-    #     print("kwargs = ", kwargs)
-    #     super().__init__(*args, **kwargs)
-
-    # def initialize(self)
-    #     self.submitted = datetime.now()
-    #     self.status = JobStatus.Queued
-
-    # def __gt__(self, other: "Job"):
-    #     return self.job_spec.priority > other.job_spec.priority
-
-    # def __eq__(self, other: "Job"):
-    #     return self.job_spec.priority == other.job_spec.priority
-
-    # @property
-    # def can_run(self) -> bool:
-    #     # self.job_spec.depends
-    #     return len(self.job_spec.depends) == 0
-
     @property
-    def walltime(self) -> timedelta:
+    def walltime(self) -> float:
+        """
+        Returns the walltime for a job in seconds elapsed
+        """
         try:
             if self.completed is not None:
                 return self.completed - self.started
             elif self.started is not None:
                 return datetime.now() - self.started
             else:
-                return timedelta(0)
+                return timedelta(0.0)
         except TypeError:
-            return timedelta(0)
+            return timedelta(0.0)
 
     def _should_prune(self) -> bool:
         now = datetime.now()

@@ -153,6 +153,7 @@ class WorkItem:
             JobStatus.Error,
             JobStatus.Deleted,
             JobStatus.Completed,
+            JobStatus.WalltimeExceeded,
         ):
             try:
                 # If we can query the process status, it is a live and running
@@ -164,8 +165,11 @@ class WorkItem:
                 self.job.status = JobStatus.Completed
         if (self.job.walltime is not None) and (self.job.job_spec.walltime is not None):
             if self.job.walltime.total_seconds() > self.job.job_spec.walltime:
+                print(
+                    f"Walltime exceeded for job {self.job.job_id} - {self.job.job_spec.walltime}"
+                )
                 self.job.status = JobStatus.WalltimeExceeded
-                self.kill()
+                self.kill(JobStatus.WalltimeExceeded)
 
         return self.job.status
 
@@ -225,13 +229,16 @@ class WorkItem:
         except:
             pass
 
-    def kill(self, new_status=JobStatus.Deleted):
+    def kill(self, new_status):
         """
         Kill this job and set its status to deleted
         """
         if self.process:
-            self.process.kill()
-            self.job.status = new_status
+            try:
+                self.process.kill()
+                self.job.status = new_status
+            except psutil.NoSuchProcess:
+                self.job.status = new_status
 
 
 @dataclass
@@ -448,7 +455,7 @@ class DynamicProcessPool:
                 if kill_due_to_error:
                     work_item.kill(new_status=JobStatus.Error)
                 else:
-                    work_item.kill()
+                    work_item.kill(new_status=JobStatus.Deleted)
                 print(f"killing running job {jid}")
                 self.CPUManager.free_processors(work_item.cores)
                 killed_jobs.append(jid)

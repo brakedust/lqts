@@ -3,13 +3,8 @@ import subprocess
 from pathlib import Path
 
 import click
-from lqts.core.config import Configuration
 
-
-if Path(".env").exists():
-    config = Configuration.load_env_file(".env")
-else:
-    config = Configuration()
+from lqts.core.config import config
 
 
 @click.command("qstart")

@@ -1,6 +1,7 @@
 from datetime import datetime
-from lqts.core.schema import Job, JobID, JobSpec, JobStatus, JobGroup
+
 from lqts.core import server
+from lqts.core.schema import Job, JobGroup, JobID, JobSpec, JobStatus
 
 API_VERSION = "api_v1"
 
@@ -10,19 +11,22 @@ app = server.get_app()
 @app.get(f"/{API_VERSION}/qstat")
 async def get_queue_status(options: dict):
     # print(options)
-    queue_status = []
 
+    queue_status = []
     if options.get("running", True):
         for job in list(app.queue.running_jobs.values()):
-            queue_status.append(job.json())
+            queue_status.append(job.model_dump_json())
 
     if options.get("queued", True):
         for job in list(app.queue.queued_jobs.values()):
-            queue_status.append(job.json())
+            queue_status.append(job.model_dump_json())
 
     if options.get("completed", False):
         queue_status.extend(
-            [job.json() for jid, job in list(app.queue.completed_jobs.items())]
+            [
+                job.model_dump_json()
+                for jid, job in list(app.queue.completed_jobs.items())
+            ]
         )
 
     return queue_status
@@ -30,7 +34,7 @@ async def get_queue_status(options: dict):
 
 @app.post(f"/{API_VERSION}/qsub")
 async def qsub(job_specs: list[JobSpec]):
-    # print(f"Submitted job specs {job_specs}")
+    print(f"Submitted job specs {job_specs}")
     return app.queue.submit(job_specs)
 
 

@@ -3,13 +3,10 @@ from pathlib import Path
 
 import click
 import requests
-from lqts.core.config import Configuration
-import lqts.environment
 
-if Path(".env").exists():
-    config = Configuration.load_env_file(".env")
-else:
-    config = Configuration()
+from lqts.core.config import config
+
+# import lqts.environment
 
 
 @click.command("qworkers")

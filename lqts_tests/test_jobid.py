@@ -17,3 +17,7 @@ def test_job_id_2():
     assert jid1.group == 2
     assert jid1.index == 4
 
+
+if __name__ == "__main__":
+    test_job_id()
+    test_job_id_2()

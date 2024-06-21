@@ -1,26 +1,16 @@
-from pathlib import Path
-import requests
-import click
 import os
+from pathlib import Path
 
+import click
+import requests
 import ujson
 
-from lqts.core.config import Configuration
-from lqts.core.schema import Job, JobID
 import lqts.displaytable as dt
-
-
-if Path(".env").exists():
-    config = Configuration.load_env_file(".env")
-else:
-    config = Configuration()
+from lqts.core.config import config
+from lqts.core.schema import Job, JobID
 
 
 @click.command("qstat")
-# @click.argument("command", nargs=1)
-# @click.argument("args", nargs=-1)
-# @click.option("--priority", default=10, type=int)
-# @click.option("--logfile", default='', type=str)
 @click.option("--debug", is_flag=True, default=False)
 @click.option("--completed", "-c", is_flag=True, default=False)
 @click.option("--running", "-r", is_flag=True, default=False)
@@ -41,9 +31,17 @@ def qstat(
 
     options = (completed, running, queued)
     if not any(options):
-        options = {"completed": False, "running": True, "queued": True}
+        options = {
+            "completed": False,
+            "running": True,
+            "queued": True,
+        }
     else:
-        options = {"completed": completed, "running": running, "queued": queued}
+        options = {
+            "completed": completed,
+            "running": running,
+            "queued": queued,
+        }
 
     config.port = port
     config.ip_address = ip_address
@@ -53,7 +51,8 @@ def qstat(
     if debug:
         print(response.text)
     else:
-        jobs = [Job(**ujson.loads(item)) for item in response.json()]
+        # print(response.json())
+        jobs = [Job.model_validate_json(item) for item in response.json()]
 
         rows = [["ID", "St", "Pr", "Command", "Walltime", "WorkingDir", "Dep"]]
         for job in jobs:
@@ -66,9 +65,11 @@ def qstat(
                     job.job_spec.command if job.job_spec is not None else "",
                     job.walltime,
                     job.job_spec.working_dir,
-                    ",".join(str(d) for d in job.job_spec.depends)
-                    if job.job_spec.depends
-                    else "-",
+                    (
+                        ",".join(str(d) for d in job.job_spec.depends)
+                        if job.job_spec.depends
+                        else "-"
+                    ),
                 ]
             )
 

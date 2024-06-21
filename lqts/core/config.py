@@ -1,13 +1,13 @@
-from pathlib import Path
+import os
 from datetime import datetime, timedelta
 from multiprocessing import cpu_count
 from os.path import expanduser, join
-import os
+from pathlib import Path
 
-from pydantic import BaseModel, BaseSettings
+from pydantic import BaseModel
 
-from lqts.util import parse_bool
 import lqts.environment
+from lqts.util import parse_bool
 
 
 class Configuration(BaseModel):
@@ -29,9 +29,7 @@ class Configuration(BaseModel):
         os.environ.get("LQTS_RESUME_ON_START_UP", False)
     )
 
-    debug: bool = parse_bool(
-        os.environ.get("LQTS_DEBUG", False)
-    )
+    debug: bool = parse_bool(os.environ.get("LQTS_DEBUG", False))
 
     @property
     def url(self):
@@ -47,7 +45,13 @@ class Configuration(BaseModel):
         for line in Path(env_file).read_text().splitlines():
             key, value = line.split("=")
             if value:
-                attr = key.lower().replace("lqts_", "")
-                d[attr] = value
+                attr = key.lower().replace("lqts_", "").strip()
+                d[attr] = value.strip()
 
-        return cls.parse_obj(d)
+        return cls.model_validate(d)
+
+
+if Path(".env").exists():
+    config = Configuration.load_env_file(".env")
+else:
+    config = Configuration()

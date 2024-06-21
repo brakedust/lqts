@@ -4,16 +4,11 @@ from string import digits
 
 import click
 import requests
-from lqts.core.config import Configuration
+
+from lqts.core.config import config
 from lqts.core.schema import JobID
 
 digits += ". "
-
-
-if Path(".env").exists():
-    config = Configuration.load_env_file(".env")
-else:
-    config = Configuration()
 
 
 @click.command("qpriority")
@@ -61,8 +56,7 @@ def qpriority(
     # data = {"priority": priority, "job_ids": job_ids}
     # print(data)
     response = requests.post(
-        f"{config.url}/api_v1/qpriority",
-        params={"priority": priority}, json=job_ids
+        f"{config.url}/api_v1/qpriority", params={"priority": priority}, json=job_ids
     )
 
     print(response.text)
