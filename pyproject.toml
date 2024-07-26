@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lqts"
-version = "1.0.58"
+version = "1.0.59"
 description = ""
 authors = ["Bradley L Campbell <bradley.campbell@navy.mil>"]
 include = ["lqts/version.py", "lqts/html/locutus.png", "lqts/html/locutus.ico"]
@@ -19,6 +19,7 @@ qworkers = "lqts.commands.qworkers:qworkers"
 qwait = "lqts.commands.qwait:qwait"
 qsummary = "lqts.commands.qsummary:qsummary"
 qpriority = "lqts.commands.qpriority:qpriority"
+qresume = "lqts.commands.qresume:qresume"
 
 [tool.poetry.dependencies]
 python = ">=3.11"
@@ -34,7 +35,7 @@ urllib3 = "2.2.2"
 pydantic-settings = "^2.3.3"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
+pytest = ">=8"
 pytest-cov = "^2.10.1"
 m2r = "^0.2.1"
 

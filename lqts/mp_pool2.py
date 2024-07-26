@@ -474,41 +474,32 @@ class DynamicProcessPool:
 
             time.sleep(self.manager_delay)
 
-            # check for finished jobs
-            self.process_completions()
+            try:
+                # check for finished jobs
+                self.process_completions()
 
-            if self.__exiting:
-                if len(self._work_items) == 0:
-                    # we are done
-                    return
-                else:
-                    # we still have some clean up to do
+                if self.__exiting:
+                    if len(self._work_items) == 0:
+                        # we are done
+                        return
+                    else:
+                        # we still have some clean up to do
+                        continue
+
+                elif self.__paused:
+                    # don't do anything this time through the loop
                     continue
 
-            elif self.__paused:
-                # don't do anything this time through the loop
-                continue
-
-            else:
-                # start up new jobs
-                try:
-                    self.feed_queue()
-                except Exception as ex:
-                    print("Server error")
-
-    # def join(self, timeout=None):
-    #     """
-    #     Blocks until all jobs are complete
-    #     Parameters
-    #     ----------
-    #     timeout: int
-    #         optional time value
-    #     """
-    #     self.log.debug("waiting to join")
-    #     value = ""
-    #     while len(self._work_items) > 0:
-    #         value = self.__signal_queue.get(timeout=timeout)
-    #         self.log.debug("join received signal: {}".format(value))
+                else:
+                    # start up new jobs
+                    try:
+                        self.feed_queue()
+                    except Exception as ex:
+                        print("Server error")
+            except:
+                # without this try/except clause the run loop stops if there is an error
+                # that means the user needs to manually kill and restart the server
+                pass
 
     def join(self, wait: bool = True):
         """

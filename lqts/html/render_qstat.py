@@ -11,20 +11,16 @@ from lqts.core.server import app
 # from lqts.themes import make_html
 
 
-env = Environment(
-    loader=PackageLoader("lqts", "html"), autoescape=select_autoescape(["html", "xml"])
-)
+env = Environment(loader=PackageLoader("lqts", "html"), autoescape=select_autoescape(["html", "xml"]))
 
-STATUS_SORT_ORDER = {"R": 1, "Q": 2, "C": 3, "X": 4, "D": 5, "E": 6, "I": 7}
+STATUS_SORT_ORDER = {"R": 1, "P": 2, "Q": 3, "C": 4, "X": 5, "D": 6, "E": 7, "I": 8}
 
 
 def render_qstat_table(jobs: List[Job], include_complete: bool = False):
     header = ["ID", "St", "Pr", "Command", "Walltime", "WorkingDir", "Deps", "Cmplt"]
     rows = (
         job.as_table_row()
-        for job in sorted(
-            jobs, key=lambda job: STATUS_SORT_ORDER[job.status.value], reverse=True
-        )
+        for job in sorted(jobs, key=lambda job: STATUS_SORT_ORDER[job.status.value], reverse=True)
         if include_complete or job.status is not JobStatus.Completed
     )
 
@@ -86,9 +82,7 @@ def render_qstat_page(include_complete: bool = False):
     jobs = app.queue.all_jobs
 
     page_template = env.get_template("page_template.jinja")
-    buttonbar = env.get_template("button_bar.jinja").render(
-        workercount=app.pool.max_workers
-    )
+    buttonbar = env.get_template("button_bar.jinja").render(workercount=app.pool.max_workers)
     script_block = env.get_template("js_script_template.jinja").render()
 
     c = Counter([job.status.value for job in jobs])

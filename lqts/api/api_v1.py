@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from lqts.core import server
-from lqts.core.schema import Job, JobGroup, JobID, JobSpec, JobStatus
+from lqts.core.schema import Job, JobID, JobSpec, JobStatus
 
 API_VERSION = "api_v1"
 
@@ -22,12 +22,7 @@ async def get_queue_status(options: dict):
             queue_status.append(job.model_dump_json())
 
     if options.get("completed", False):
-        queue_status.extend(
-            [
-                job.model_dump_json()
-                for jid, job in list(app.queue.completed_jobs.items())
-            ]
-        )
+        queue_status.extend([job.model_dump_json() for jid, job in list(app.queue.completed_jobs.items())])
 
     return queue_status
 
@@ -38,7 +33,7 @@ async def qsub(job_specs: list[JobSpec]):
     return app.queue.submit(job_specs)
 
 
-@app.on_event(f"shutdown")
+@app.on_event("shutdown")
 async def on_shutdown():
     app.pool.shutdown(wait=False)
     app.queue.shutdown()
@@ -71,9 +66,7 @@ async def get_workers():
     """
     Gets the number of worker processes to execute jobs.
     """
-    app.log.info(
-        "Number of workers queried by user. Returned {}".format(app.pool.max_workers)
-    )
+    app.log.info("Number of workers queried by user. Returned {}".format(app.pool.max_workers))
     return app.pool.max_workers
 
 
@@ -89,7 +82,6 @@ async def set_workers(count: int) -> int:
 
 @app.get(f"/{API_VERSION}/jobgroup")
 async def get_job_group(group_number: int) -> list[JobID]:
-
     return list(app.queue.job_groups[group_number].jobs.keys())
 
 
@@ -149,8 +141,7 @@ async def qpriority(priority: int, job_ids: list[JobID]):
 
 
 @app.get(f"/{API_VERSION}/job_request")
-async def job_request():
-
+async def job_request() -> Job:
     job = app.queue.queued_jobs.pop()
     if job is None:
         return "{}"
@@ -170,3 +161,10 @@ async def job_done(done_job: Job):
 @app.post(f"/{API_VERSION}/job_started")
 async def job_started():
     pass
+
+
+@app.post(f"/{API_VERSION}/resume")
+async def qresume(job_ids: list[JobID]) -> list[JobID]:
+    print("Received requst to resume some jobs")
+    jobs_resumed = app.queue.resume(job_ids=job_ids)
+    return jobs_resumed

@@ -388,3 +388,23 @@ submit 30 jobs to the queue.
 ```
 $ qsub-test 5 --count 30
 ```
+
+# 12. Recovery from a Restart
+
+If the server is interupted while there jobs in the queue, say from a computer restart or other act of nature,
+the jobs in queue may be recovered the next time the server starts.  Loqutus writes the current queue (running and queued
+jobs) to `$home/lqts.queue.txt`.  Every five seconds the server checks is the state of queue has changed, if so the
+queue file is rewritten.  When the server starts up, this file read.  If there are any jobs in it, they are placed back
+in the queue in a `Paused` state.  The command `qresume` may be used to restart all or specified jobs.
+
+```
+Usage: qresume [OPTIONS] [JOB_IDS]...
+
+  Resume paused jobs from the queue
+
+Options:
+  --debug
+  --port INTEGER     The port number of the server  [default: 9200]
+  --ip_address TEXT  The IP address of the server  [default: 127.0.0.1]
+  --help             Show this message and exit.
+```

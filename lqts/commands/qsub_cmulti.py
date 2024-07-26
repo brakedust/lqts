@@ -1,4 +1,3 @@
-import json
 import os
 from itertools import chain
 from pathlib import Path
@@ -14,9 +13,8 @@ from .click_ext import OptionNargs
 
 
 @click.command("qsub-cmulti")
-@click.pass_context
 @click.argument("command", nargs=1)
-@click.argument("file_pattern", nargs=-1, type=str)
+@click.argument("file_pattern", nargs=1, type=str)
 @click.argument("args", nargs=-1)
 @click.option("--priority", default=1, type=int)
 # @click.option("--logfile", default="", type=str)
@@ -99,9 +97,10 @@ def qsub_cmulti(
 
     from glob import iglob
 
-    files = []
-    for fp in file_pattern:
-        files.append(list(iglob(fp)))
+    # files = []
+    # for fp in file_pattern:
+    #     files.append(list(iglob(fp)))
+    files = list(iglob(file_pattern))
 
     print(files)
 
@@ -117,6 +116,8 @@ def qsub_cmulti(
 
     if depends:
         depends = list(chain(*[get_job_ids(d) for d in depends]))
+    else:
+        depends = []
 
     if walltime:
         walltime = parse_walltime(walltime)

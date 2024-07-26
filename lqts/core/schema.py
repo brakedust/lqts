@@ -13,17 +13,15 @@ job queues.
     * JobQueue
 """
 
-import concurrent.futures as cf
 import enum
 import itertools
-import textwrap
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple, Union
 
 from pydantic import BaseModel, Field, field_validator
 
 from lqts.core.config import Configuration
-from lqts.simple_logging import Level, Logger, getLogger
+from lqts.simple_logging import Level, getLogger
 
 DEBUG = False
 
@@ -155,7 +153,15 @@ class Job(BaseModel):
 
     job_spec: JobSpec = None
 
-    cores: list[int] = None
+    cores: list[int] | None = Field(default_factory=list)
+
+    @field_validator("cores")
+    @classmethod
+    def parse_walltime(cls, val: list[int] | None):
+        if val is None:
+            return []
+        else:
+            return val
 
     @property
     def walltime(self) -> float:
@@ -282,9 +288,7 @@ class JobQueue(BaseModel):
         """
         return [
             job
-            for job in itertools.chain(
-                self.running_jobs.values(), self.queued_jobs.values()
-            )
+            for job in itertools.chain(self.running_jobs.values(), self.queued_jobs.values())
             if job.job_id.group == group_id
         ]
 
@@ -318,8 +322,7 @@ class JobQueue(BaseModel):
 
         if len(job_specs) == 1:
             LOGGER.info(
-                f"+++ Assimilated job {job.job_id} at "
-                + f"{job.submitted.isoformat()} - {job.job_spec.command}"
+                f"+++ Assimilated job {job.job_id} at " + f"{job.submitted.isoformat()} - {job.job_spec.command}"
             )
         elif len(job_specs) > 1:
             first_job_id, *_, last_job_id = list(group.jobs.keys())
@@ -366,9 +369,7 @@ class JobQueue(BaseModel):
         self.on_queue_change()
 
         if LOGGER is not None:
-            LOGGER.info(
-                f">>> Started     job {job.job_id} at {job.started.isoformat()}.  cores={job.cores}"
-            )
+            LOGGER.info(f">>> Started     job {job.job_id} at {job.started.isoformat()}.  cores={job.cores}")
 
     def on_job_finished(self, completed_job: Job):
         """
@@ -382,8 +383,7 @@ class JobQueue(BaseModel):
             duration = job.completed - job.started
             if LOGGER is not None:
                 LOGGER.info(
-                    f"--- Completed   job {job.job_id} at {job.completed.isoformat()}. "
-                    + f"Duration = {duration}"
+                    f"--- Completed   job {job.job_id} at {job.completed.isoformat()}. " + f"Duration = {duration}"
                 )
         except KeyError:
             pass
@@ -402,11 +402,12 @@ class JobQueue(BaseModel):
 
         job = self.queued_jobs[job_id]
 
+        if job.status == JobStatus.Paused:
+            return False
+
         if job.job_spec.depends:
             waiting_on: List[JobID] = [
-                id_
-                for id_ in job.job_spec.depends
-                if ((id_ in self.running_jobs) or (id_ in self.queued_jobs))
+                id_ for id_ in job.job_spec.depends if ((id_ in self.running_jobs) or (id_ in self.queued_jobs))
             ]
         else:
             waiting_on: List[JobID] = []
@@ -430,9 +431,7 @@ class JobQueue(BaseModel):
             LOGGER.debug("Pruning - nothing pruned")
             return
 
-        prune_count = (
-            completed_jobs - self.completed_limit
-        )  # int(self.completed_limit / 2)
+        prune_count = completed_jobs - self.completed_limit  # int(self.completed_limit / 2)
         LOGGER.debug(f"Pruning - will prune {prune_count} completed jobs")
         self.pruned_jobs = {}
         for ij, job in enumerate(list(self.completed_jobs.values())):
@@ -456,12 +455,13 @@ class JobQueue(BaseModel):
             if self.is_dirty:
                 self.save()
 
-            for __ in range(15):
-                time.sleep(2)
-                if "abort" in self.flags:
-                    LOGGER.debug("Aborting and shutting down")
-                    self.flags.remove("abort")
-                    return
+            time.sleep(5)
+            # for __ in range(15):
+            #     time.sleep(2)
+            #     if "abort" in self.flags:
+            #         LOGGER.debug("Aborting and shutting down")
+            #         self.flags.remove("abort")
+            #         return
 
     def _start_manager_thread(self):
         """
@@ -482,44 +482,44 @@ class JobQueue(BaseModel):
         self.flags.append("abort")
 
     def save(self):
-        return
-        # with open(self.queue_file, "w") as fid:
+        # return
+        with open(self.queue_file, "w") as fid:
+            fid.write("[running_jobs]\n")
+            for job_id, job in self.running_jobs.items():
+                fid.write(f"{job_id}: {job.model_dump_json()}\n")
 
-        #     fid.write("[running_jobs]\n")
-        #     for job_id, job in self.running_jobs.items():
-        #         fid.write(f"{job_id}: {job.json()}\n")
+            fid.write("[queued_jobs]\n")
+            for job_id, job in self.queued_jobs.items():
+                fid.write(f"{job_id}: {job.model_dump_json()}\n")
 
-        #     fid.write("[queued_jobs]\n")
-        #     for job_id, job in self.queued_jobs.items():
-        #         fid.write(f"{job_id}: {job.json()}\n")
+            # fid.write("[completed_jobs]\n")
+            # for job_id, job in self.completed_jobs.items():
+            #     fid.write(f"{job_id}: {job.model_dump_json()}\n")
 
-        #     fid.write("[completed_jobs]\n")
-        #     for job_id, job in self.completed_jobs.items():
-        #         fid.write(f"{job_id}: {job.json()}\n")
-
-        # self.is_dirty = False
+        self.is_dirty = False
 
     def load(self):
-        return
+        # return
         max_job_group = 0
         with open(self.queue_file, "r") as fid:
-            reading_queue = self.running_jobs
-            was_running = False
+            reading_queue = self.queued_jobs
+            # was_running = False
             for line in fid:
                 if "[running_jobs]" in line:
                     reading_queue = self.queued_jobs
-                    was_running = True
+                    # was_running = True
                 elif "[queued_jobs]" in line:
                     reading_queue = self.queued_jobs
-                    was_running = False
-                elif "[completed_jobs]" in line:
-                    reading_queue = self.completed_jobs
-                    was_running = False
+                    # was_running = False
+                # elif "[completed_jobs]" in line:
+                #     reading_queue = self.completed_jobs
+                #     was_running = False
                 else:
                     *_, str_job = line.partition(":")
-                    job = Job.parse_raw(str_job)
-                    if was_running:
-                        job.status = JobStatus.Queued
+                    job = Job.model_validate_json(str_job)
+                    job.status = JobStatus.Paused
+                    # if was_running:
+                    #     job.status = JobStatus.Queued
                     max_job_group = max(job.job_id.group, max_job_group)
 
                     reading_queue[job.job_id] = job
@@ -576,6 +576,25 @@ class JobQueue(BaseModel):
             job = self.running_jobs.pop(job_id)
             job.status = JobStatus.Deleted
             self.completed_jobs[job_id] = job
+
+    def resume(self, job_ids: list[JobID]) -> list[JobID]:
+        """
+        Marks job in the queued as "Queued" if they were previously marked "Paused"
+        """
+        jobs_resumed = []
+        if not job_ids:
+            job_ids = list(self.queued_jobs.keys())
+
+        for job_id in job_ids:
+            job = self.queued_jobs[job_id]
+            if job.status != JobStatus.Paused:
+                print(f"NOT resuming job: {job}")
+                continue
+            print(f"Resuming job: {job}")
+            job.status = JobStatus.Queued
+            jobs_resumed.append(job_id)
+
+        return jobs_resumed
 
 
 class WorkItem(BaseModel):

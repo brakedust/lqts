@@ -1,9 +1,7 @@
-from pathlib import Path
-
 from fastapi import FastAPI
 
 # from lqts.job_runner import run_command
-from lqts.core.config import Configuration
+from lqts.core.config import Configuration, config
 from lqts.core.schema import JobQueue
 from lqts.mp_pool2 import DEFAULT_WORKERS, DynamicProcessPool
 from lqts.version import VERSION
@@ -14,15 +12,15 @@ class Application(FastAPI):
     LoQuTuS Job Scheduling Server
     """
 
-    config: Configuration = None
+    config: Configuration = config
 
     def __init__(self):
         super().__init__()
 
-        if Path(".env").exists():
-            self.config = Configuration.load_env_file(".env")
-        else:
-            self.config = Configuration()
+        # if Path(".env").exists():
+        #     self.config = Configuration.load_env_file(".env")
+        # else:
+        #     self.config = Configuration()
 
         self._setup_logging(None)
         self.queue = JobQueue(
@@ -42,9 +40,9 @@ class Application(FastAPI):
 
         self.log.info(f"Visit {self.config.url}/qstatus to view the queue status")
 
-        if self.config.resume_on_start_up and Path(self.config.queue_file).exists():
-            self.log.info("Attempting to resume queue")
-            self.queue.load()
+        # if self.config.resume_on_start_up and Path(self.config.queue_file).exists():
+        #     self.log.info("Attempting to resume queue")
+        self.queue.load()
 
         self.debug = self.config.debug
 
@@ -60,15 +58,11 @@ class Application(FastAPI):
         #     nworkers = self.config.nworkers
 
         # self.pool = cf.ProcessPoolExecutor(max_workers=nworkers)
-        self.pool = DynamicProcessPool(
-            queue=self.queue, max_workers=nworkers, feed_delay=0.05, manager_delay=2.0
-        )
+        self.pool = DynamicProcessPool(queue=self.queue, max_workers=nworkers, feed_delay=0.05, manager_delay=2.0)
         self.pool._start_manager_thread()
         # self.pool.add_event_callback(self.receive_pool_events)
         self.log.info("Worker pool started with {} workers.".format(nworkers))
-        self.log.info(
-            f"Total number of CPUs available is {self.pool.CPUManager._system_cpu_count}."
-        )
+        self.log.info(f"Total number of CPUs available is {self.pool.CPUManager._system_cpu_count}.")
 
     def _setup_logging(self, log_file: str):
         """
