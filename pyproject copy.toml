@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "lqts"
+version = "1.0.59"
+description = ""
+authors = ["Bradley L Campbell <bradley.campbell@navy.mil>"]
+include = ["lqts/version.py", "lqts/html/locutus.png", "lqts/html/locutus.ico"]
+
+[tool.poetry.scripts]
+qsub = "lqts.commands.qsub:app"
+qsub-multi = "lqts.commands.qsub_multi:app"
+qsub-cmulti = "lqts.commands.qsub_cmulti:app"
+qsub-argfile = "lqts.commands.qsub_argfile:app"
+qsub-test = "lqts.commands.qsub_test:app"
+qstart = "lqts.commands.qstart:qstart"
+qstat = "lqts.commands.qstat:qstat"
+qclear = "lqts.commands.qclear:qclear"
+qdel = "lqts.commands.qdel:qdel"
+qworkers = "lqts.commands.qworkers:qworkers"
+qwait = "lqts.commands.qwait:qwait"
+qsummary = "lqts.commands.qsummary:qsummary"
+qpriority = "lqts.commands.qpriority:qpriority"
+qresume = "lqts.commands.qresume:qresume"
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+click = "8.1.7"
+tqdm = "4.66.4"
+fastapi = "0.111.0"
+pydantic = "2.7.4"
+jinja2 = "3.1.4"
+ujson = "5.10.0"
+requests = "2.32.3"
+psutil = "6.0.0"
+urllib3 = "2.2.2"
+pydantic-settings = "^2.3.3"
+
+[tool.poetry.dev-dependencies]
+pytest = ">=8"
+pytest-cov = "^2.10.1"
+m2r = "^0.2.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

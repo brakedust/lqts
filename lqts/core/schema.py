@@ -271,7 +271,7 @@ class JobQueue(BaseModel):
 
     def start_up(self):
         """Start up the queue"""
-        self._start_manager_thread()
+        self.start()
 
     def on_queue_change(self, *args, **kwargs):
         """
@@ -463,7 +463,7 @@ class JobQueue(BaseModel):
             #         self.flags.remove("abort")
             #         return
 
-    def _start_manager_thread(self):
+    def start(self):
         """
         Starts the thread that manages the process pool
 
@@ -588,9 +588,9 @@ class JobQueue(BaseModel):
         for job_id in job_ids:
             job = self.queued_jobs[job_id]
             if job.status != JobStatus.Paused:
-                print(f"NOT resuming job: {job}")
+                print(f"NOT resuming job: {job.job_id}")
                 continue
-            print(f"Resuming job: {job}")
+            print(f"Resuming job: {job.job_id}")
             job.status = JobStatus.Queued
             jobs_resumed.append(job_id)
 

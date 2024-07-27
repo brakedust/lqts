@@ -1,13 +1,12 @@
-import pytest
 import time
 
+from lqts.core.schema import JobQueue, JobSpec
+
 # from lqts.lqts.schema import JobSpec, WorkItem
-from lqts.mp_pool2 import WorkItem, DynamicProcessPool
-from lqts.core.schema import JobSpec, Job, JobQueue, JobID
+from lqts.mp_pool2 import DynamicProcessPool, WorkItem
 
 
 def test_work_item():
-
     q = JobQueue()
 
     js = JobSpec(command="cmd.exe /C sleep 2.5", working_dir="d:/temp", cores=2)
@@ -32,7 +31,6 @@ def test_work_item():
 
 
 def test_work_item_kill():
-
     q = JobQueue()
 
     js = JobSpec(command="cmd.exe /C sleep 2.5", working_dir="d:/temp", cores=2)
@@ -59,7 +57,6 @@ def test_work_item_kill():
 
 
 def test_pool():
-
     q = JobQueue()
 
     js = JobSpec(command="cmd.exe /C sleep 2.5", working_dir="d:/temp", cores=1)
@@ -69,7 +66,7 @@ def test_pool():
 
     pool = DynamicProcessPool(q, 20)
 
-    pool._start_manager_thread()
+    pool.start()
     time.sleep(4)
     print(q.running_jobs.values())
     assert len(q.running_jobs) > 0

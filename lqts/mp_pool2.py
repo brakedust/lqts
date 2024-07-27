@@ -133,13 +133,8 @@ class WorkItem:
             self._logging_thread.start()
 
         except FileNotFoundError:
-            self.logfile.write(
-                f"\nERROR: Command not found.  Ensure the command is an executable file.\n"
-            )
-            self.logfile.write(
-                f"Make sure you give the full path to the file or "
-                "that it is on your system path.\n\n"
-            )
+            self.logfile.write("\nERROR: Command not found.  Ensure the command is an executable file.\n")
+            self.logfile.write("Make sure you give the full path to the file or " "that it is on your system path.\n\n")
             # ================================================
             # Flag the job as completed with an error status
             self.job.completed = datetime.now()
@@ -165,9 +160,7 @@ class WorkItem:
                 self.job.status = JobStatus.Completed
         if (self.job.walltime is not None) and (self.job.job_spec.walltime is not None):
             if self.job.walltime.total_seconds() > self.job.job_spec.walltime:
-                print(
-                    f"Walltime exceeded for job {self.job.job_id} - {self.job.job_spec.walltime}"
-                )
+                print(f"Walltime exceeded for job {self.job.job_id} - {self.job.job_spec.walltime}")
                 self.job.status = JobStatus.WalltimeExceeded
                 self.kill(JobStatus.WalltimeExceeded)
 
@@ -193,7 +186,7 @@ class WorkItem:
                 # print(f"{line=}")
                 self.logfile.write(line)
                 self.logfile.flush()
-        except Exception as ex:
+        except Exception:
             # import traceback
             # traceback.print_exc()
             pass
@@ -274,9 +267,7 @@ class DynamicProcessPool:
     ):
         self.job_queue: JobQueue = queue
 
-        self.CPUManager = CPUResourceManager(
-            min(max(max_workers, 1), mp.cpu_count() - 1)
-        )
+        self.CPUManager = CPUResourceManager(min(max(max_workers, 1), mp.cpu_count() - 1))
 
         self.feed_delay = feed_delay  # delay between subsequent job start ups
 
@@ -389,7 +380,7 @@ class DynamicProcessPool:
             self.job_queue.on_job_started(job)
 
             return True, work_item
-        except Exception as ex:
+        except Exception:
             print(f"Error starting job {work_item.job.job_id}")
             self.kill_job(work_item.job.job_id)
 
@@ -406,9 +397,7 @@ class DynamicProcessPool:
                 # no jobs available
                 break
 
-            some_available, cores = self.CPUManager.get_processors(
-                count=job.job_spec.cores
-            )
+            some_available, cores = self.CPUManager.get_processors(count=job.job_spec.cores)
 
             if not some_available:
                 # not enough cores are available to run this job
@@ -471,7 +460,6 @@ class DynamicProcessPool:
         """
 
         while True:
-
             time.sleep(self.manager_delay)
 
             try:
@@ -494,7 +482,7 @@ class DynamicProcessPool:
                     # start up new jobs
                     try:
                         self.feed_queue()
-                    except Exception as ex:
+                    except Exception:
                         print("Server error")
             except:
                 # without this try/except clause the run loop stops if there is an error
@@ -527,7 +515,7 @@ class DynamicProcessPool:
                 # kill running jobs
                 work_item.kill()
 
-    def _start_manager_thread(self) -> threading.Thread:
+    def start(self) -> threading.Thread:
         """
         Starts the thread that manages the process pool
 

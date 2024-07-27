@@ -29,14 +29,8 @@ async def get_queue_status(options: dict):
 
 @app.post(f"/{API_VERSION}/qsub")
 async def qsub(job_specs: list[JobSpec]):
-    print(f"Submitted job specs {job_specs}")
+    # print(f"Submitted job specs {job_specs}")
     return app.queue.submit(job_specs)
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    app.pool.shutdown(wait=False)
-    app.queue.shutdown()
 
 
 @app.get(f"/{API_VERSION}/qsummary")
